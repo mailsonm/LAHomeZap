@@ -70,19 +70,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| KANB-01 | Pending | Pending |
-| KANB-02 | Pending | Pending |
-| FORW-01 | Pending | Pending |
-| MENT-01 | Pending | Pending |
-| STAT-01 | Pending | Pending |
-| CONF-01 | Pending | Pending |
-| CONF-02 | Pending | Pending |
-| CONF-03 | Pending | Pending |
+| KANB-01 | Phase 3 | Pending |
+| KANB-02 | Phase 3 | Pending |
+| FORW-01 | Phase 4 | Pending |
+| MENT-01 | Phase 5 | Pending |
+| STAT-01 | Phase 1 | Pending |
+| CONF-01 | Phase 2 | Pending |
+| CONF-02 | Phase 2 | Pending |
+| CONF-03 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠️
+- Mapped to phases: 8
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-26*
