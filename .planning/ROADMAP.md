@@ -7,8 +7,8 @@ O desenvolvimento do La Home Zap seguirá uma abordagem de MVP Vertical para ent
 ## Phases
 
 - [x] **Phase 1: Foundation & Custom Attendant Name** - Setup da extensão e injeção do nome do atendente em negrito.
-- [ ] **Phase 2: Options Page & Storage Sync** - Tela de configurações e sincronização automática via storage do Chrome.
-- [ ] **Phase 3: Kanban Panel Integration** - Painel lateral Kanban injetado responsivamente no WhatsApp Web.
+- [x] **Phase 2: Options Page & Storage Sync** - Tela de configurações e sincronização automática via storage do Chrome.
+- [x] **Phase 3: Kanban Panel Integration** - Painel lateral Kanban injetado responsivamente no WhatsApp Web.
 - [ ] **Phase 4: Quick Forward Modal** - Modal de repasse rápido com lista de favoritos.
 - [ ] **Phase 5: Quick Mention Menu (@@)** - Popover de menções rápidas acionado por "@@".
 - [ ] **Phase 6: Pruning & Final Adjustments** - Pruning automático de demandas concluídas e polimento geral.
@@ -40,8 +40,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: UI da Options Page em React para gerenciamento de múltiplos atendentes e switches de comportamento.
-- [ ] 02-02: Wrapper de Storage integrado com `chrome.storage.sync` para sincronização de dados e atualização reativa do content script.
+- [x] 02-01: UI da Options Page em React para gerenciamento de múltiplos atendentes e switches de comportamento.
+- [x] 02-02: Wrapper de Storage integrado com `chrome.storage.sync` para sincronização de dados e atualização reativa do content script.
 
 ### Phase 3: Kanban Panel & Attendance Control Integration
 **Goal**: Injetar o painel Kanban e o fluxo de Iniciar/Finalizar Atendimento integrado a etiquetas nativas do WhatsApp Business.
@@ -56,8 +56,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Injeção do layout Kanban e do botão de "Iniciar Atendimento" com suporte a controle de etiquetas.
-- [ ] 03-02: Desenvolvimento do Kanban React, fluxo de verificação de etiquetas do WhatsApp Business e sincronização de responsáveis.
+- [x] 03-01: Injeção do layout Kanban e do botão de "Iniciar Atendimento" com suporte a controle de etiquetas.
+- [x] 03-02: Desenvolvimento do Kanban React, fluxo de verificação de etiquetas do WhatsApp Business e sincronização de responsáveis.
 
 ### Phase 4: Quick Forward Modal
 **Goal**: Implementar o modal rápido de favoritos para encaminhamento manual agilizado de mensagens.
@@ -108,8 +108,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Custom Attendant Name | 2/2 | Completed | 2026-06-26 |
-| 2. Options Page & Storage Sync | 0/2 | Not started | - |
-| 3. Kanban Panel Integration | 0/2 | Not started | - |
+| 2. Options Page & Storage Sync | 2/2 | Completed | 2026-06-26 |
+| 3. Kanban Panel Integration | 2/2 | Completed | 2026-06-26 |
 | 4. Quick Forward Modal | 0/2 | Not started | - |
 | 5. Quick Mention Menu (@@) | 0/2 | Not started | - |
 | 6. Pruning & Final Adjustments | 0/2 | Not started | - |
