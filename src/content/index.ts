@@ -202,8 +202,15 @@ function getActiveChatName(): string | null {
   const headerElement = document.querySelector(SELECTORS.chatHeader);
   if (!headerElement) return null;
   
-  const titleElement = headerElement.querySelector('[data-testid="conversation-info-header"] span, [title]') as HTMLElement;
-  return titleElement ? (titleElement.title || titleElement.textContent || '').trim() : null;
+  // Resilient check: search for span with dir="auto" and title (standard contact name element in header)
+  const titleElement = headerElement.querySelector('span[dir="auto"][title]') as HTMLElement;
+  if (titleElement && titleElement.title) {
+    return titleElement.title.trim();
+  }
+  
+  // Fallbacks
+  const fallback = headerElement.querySelector('[data-testid="conversation-info-header"] span, span[dir="auto"]') as HTMLElement;
+  return fallback ? (fallback.getAttribute('title') || fallback.textContent || '').trim() : null;
 }
 
 /**

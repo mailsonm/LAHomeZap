@@ -43,15 +43,24 @@ function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
 
   // Control margins of WhatsApp Web interface dynamically
   useEffect(() => {
+    const hostElement = document.getElementById('la-home-zap-kanban-root');
+    const width = isCollapsed ? '40px' : '350px';
+    if (hostElement) {
+      hostElement.style.width = width;
+      hostElement.style.transition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+
     const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
     if (appElement) {
-      const width = isCollapsed ? '40px' : '350px';
       appElement.style.marginRight = width;
       appElement.style.transition = 'margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     }
 
     // Cleanup on unmount
     return () => {
+      if (hostElement) {
+        hostElement.style.width = '0px';
+      }
       const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
       if (appElement) {
         appElement.style.marginRight = '0px';
