@@ -1,47 +1,137 @@
 import { SELECTORS } from '../utils/selectors';
 
-// Local cache for the attendant's name to avoid asynchronous delays during event handlers
+interface Attendant {
+  id: string;
+  name: string;
+  isFavorite: boolean;
+}
+
+interface Settings {
+  quickAccess: boolean;
+  transferAlert: boolean;
+  attendanceControl: boolean;
+  capitalizeInitial: boolean;
+  dontRepeatInChat: boolean;
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  quickAccess: true,
+  transferAlert: false,
+  attendanceControl: true,
+  capitalizeInitial: true,
+  dontRepeatInChat: false
+};
+
+// Local cached configurations
 let cachedAttendantName = 'Coordenação';
+let cachedSettings: Settings = DEFAULT_SETTINGS;
 
 /**
- * Initializes and loads the attendant name from storage.
- * Setups storage listeners to sync updates from the options page in real-time.
+ * Updates local cache from the raw attendants list.
  */
-function initAttendantName() {
+function updateAttendantCache(attendantsList: Attendant[]) {
+  if (Array.isArray(attendantsList) && attendantsList.length > 0) {
+    const favorite = attendantsList.find(a => a.isFavorite);
+    if (favorite) {
+      cachedAttendantName = favorite.name;
+    } else {
+      cachedAttendantName = attendantsList[0].name;
+    }
+  } else {
+    cachedAttendantName = 'Coordenação';
+  }
+}
+
+/**
+ * Loads extension configuration and settings from storage.
+ * Setups live listeners to react to changes on the options page instantly.
+ */
+function initExtensionConfig() {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    // Get initial value
-    chrome.storage.sync.get(['attendantName'], (result) => {
-      if (result.attendantName) {
-        cachedAttendantName = result.attendantName;
+    // Load initial settings and attendants list
+    chrome.storage.sync.get(['attendants', 'settings'], (result) => {
+      if (result.attendants) {
+        updateAttendantCache(result.attendants);
+      }
+      if (result.settings) {
+        cachedSettings = { ...DEFAULT_SETTINGS, ...result.settings };
       }
     });
 
-    // Listen for changes from the options page
+    // Listen to live changes
     chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'sync' && changes.attendantName) {
-        cachedAttendantName = changes.attendantName.newValue || 'Coordenação';
+      if (areaName === 'sync') {
+        if (changes.attendants) {
+          updateAttendantCache(changes.attendants.newValue);
+        }
+        if (changes.settings) {
+          cachedSettings = { ...DEFAULT_SETTINGS, ...changes.settings.newValue };
+        }
       }
     });
   } else {
-    // Fallback for development outside extension environment
-    const localName = localStorage.getItem('attendantName');
-    if (localName) {
-      cachedAttendantName = localName;
+    // Fallback to localStorage for development
+    try {
+      const localAttendants = localStorage.getItem('attendants');
+      const localSettings = localStorage.getItem('settings');
+      if (localAttendants) {
+        updateAttendantCache(JSON.parse(localAttendants));
+      }
+      if (localSettings) {
+        cachedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(localSettings) };
+      }
+    } catch (e) {
+      console.warn('[La Home Zap] Storage fallback failed to load:', e);
     }
   }
 }
 
 /**
- * Checks if the focused element is the WhatsApp Web main chat input.
+ * Helper to capitalize the first letter of a string.
+ */
+function capitalize(text: string): string {
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * Scans the active chat DOM for recent sent messages containing the signature.
+ * Prevents multiple signatures from polluting the conversation history.
+ */
+function hasRecentSignature(attendantName: string): boolean {
+  // WhatsApp Business Web uses class .message-out for sent messages
+  const sentMessages = document.querySelectorAll('.message-out');
+  if (sentMessages.length === 0) {
+    return false;
+  }
+
+  // Normalize target names to avoid case or trim mismatches
+  const targetText = `Atendente: ${attendantName}`.toLowerCase();
+  const targetBold = `*Atendente: ${attendantName}*`.toLowerCase();
+
+  // Check the last 3 sent messages
+  const limit = Math.min(sentMessages.length, 3);
+  for (let i = 0; i < limit; i++) {
+    const message = sentMessages[sentMessages.length - 1 - i];
+    const text = (message.textContent || '').toLowerCase();
+    
+    if (text.includes(targetText) || text.includes(targetBold)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if the element is the WhatsApp Web main text input.
  */
 function isChatInput(element: HTMLElement): boolean {
   if (element.matches(SELECTORS.chatInput)) {
     return true;
   }
   
-  // Fallback check if the main input selector matches but lacks data-tab
   if (element.matches(SELECTORS.chatInputFallback)) {
-    // Ensure it's not the search input
     if (element.matches(SELECTORS.searchInput)) {
       return false;
     }
@@ -52,7 +142,7 @@ function isChatInput(element: HTMLElement): boolean {
 }
 
 /**
- * Handles the focusin event to inject the signature.
+ * Handles message input focus to inject the signature.
  */
 function handleFocusIn(event: FocusEvent) {
   const target = event.target as HTMLElement;
@@ -60,32 +150,37 @@ function handleFocusIn(event: FocusEvent) {
     return;
   }
 
-  // Check if input is empty. WhatsApp inputs might have HTML tags like <br> or <p> inside,
-  // so we check if the text content is empty or contains only whitespace.
+  // Check if current input field is empty
   const textContent = target.textContent || '';
-  const trimmedText = textContent.trim();
-
-  // If there's already something in the field, we don't overwrite it.
-  if (trimmedText.length > 0) {
+  if (textContent.trim().length > 0) {
     return;
   }
 
-  // Format signature: *Attendant: Name*\n\n
-  const signature = `*Atendente: ${cachedAttendantName}*\n\n`;
+  // Format attendant's name according to settings
+  let name = cachedAttendantName;
+  if (cachedSettings.capitalizeInitial) {
+    name = capitalize(name);
+  }
 
-  // Focus and insert text using document.execCommand to safely sync with React/Lexical state
+  // Apply signature repetition check
+  if (cachedSettings.dontRepeatInChat && hasRecentSignature(name)) {
+    return;
+  }
+
+  // Build the signature string
+  const signature = `*Atendente: ${name}*\n\n`;
+
+  // Focus input and execute typing simulator command
   target.focus();
-  
-  // Executing insertText simulates user typing, which updates React state bindings correctly
   try {
     document.execCommand('insertText', false, signature);
   } catch (error) {
-    console.error('[La Home Zap] Failed to inject signature using execCommand:', error);
+    console.error('[La Home Zap] Failed to inject signature:', error);
   }
 }
 
-// Initialize name and register global capture listener
-initAttendantName();
+// Bootstrap
+initExtensionConfig();
 document.addEventListener('focusin', handleFocusIn, true);
 
-console.log('[La Home Zap] Content script initialized and listening.');
+console.log('[La Home Zap] Content script initialized.');
