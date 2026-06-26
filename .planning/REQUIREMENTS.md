@@ -20,12 +20,13 @@
 
 ### Status & Assinaturas (STAT)
 
-- [ ] **STAT-01**: Inserção automática do nome personalizado do atendente configurado, em negrito e no topo da mensagem enviada, para identificar quem conversou com a pessoa (ex: `*Atendente: [Nome]*\n`).
+- [x] **STAT-01**: Inserção automática do nome personalizado do atendente configurado, em negrito e no topo da mensagem enviada, para identificar quem conversou com a pessoa (ex: `*Atendente: [Nome]*\n`).
+- [ ] **STAT-02**: Botão "Iniciar Atendimento / Finalizar Atendimento" integrado ao cabeçalho do chat, gerenciando etiquetas do WhatsApp Business. Verifica a presença da etiqueta do atendente ativo (ex: `"Luan:"`), exibe modal instrutivo em caso de ausência e auxilia o redirecionamento para criação.
 
 ### Configurações & Sincronização (CONF)
 
-- [ ] **CONF-01**: Página de Opções (Options page) nativa da extensão para cadastrar e gerenciar o nome do atendente local, grupos favoritos e configurações básicas.
-- [ ] **CONF-02**: Sincronização de configurações e status de demandas ativas do Kanban de forma transparente entre atendentes via `chrome.storage.sync` (usando conta organizacional Google).
+- [ ] **CONF-01**: Página de Opções ("Nome Personalizado") para cadastrar múltiplos atendentes, definir o atendente ativo (estrela), gerenciar grupos favoritos e configurar opções de comportamento (Acesso rápido, Alerta de Transferência, Letra maiúscula, Não repetir, Controle de Atendimento).
+- [ ] **CONF-02**: Sincronização de configurações (atendentes, checkboxes globais e status de demandas ativas) de forma transparente entre atendentes via `chrome.storage.sync` (usando conta organizacional Google).
 - [ ] **CONF-03**: Mecanismo automático de limpeza (pruning) de demandas concluídas com mais de 24 horas no Kanban para respeitar o limite de 100KB do `chrome.storage.sync`.
 
 ---
@@ -51,7 +52,6 @@
 
 ### Badges e Respostas Rápidas
 
-- **STAT-02**: Etiquetas coloridas de status de atendimento (Aguardando Hapvida, Em Triagem, Atribuído, Atendido) injetadas ao lado do nome do chat na lista de conversas.
 - **STAT-03**: Templates de frases padrão da empresa com preenchimento dinâmico de variáveis (`{{nome}}`, `{{prestador}}`, `{{data}}`) via interface popover.
 
 ---
@@ -74,16 +74,17 @@
 | KANB-02 | Phase 3 | Pending |
 | FORW-01 | Phase 4 | Pending |
 | MENT-01 | Phase 5 | Pending |
-| STAT-01 | Phase 1 | Pending |
+| STAT-01 | Phase 1 | Completed |
+| STAT-02 | Phase 3 | Pending |
 | CONF-01 | Phase 2 | Pending |
 | CONF-02 | Phase 2 | Pending |
 | CONF-03 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 8 total
-- Mapped to phases: 8
+- v1 requirements: 9 total
+- Mapped to phases: 9
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-26*
-*Last updated: 2026-06-26 after initial definition*
+*Last updated: 2026-06-26 after adding attendance control and attendant manager*

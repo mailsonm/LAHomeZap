@@ -30,33 +30,34 @@ Plans:
 - [x] 01-02: Desenvolvimento do Content Script para captura e manipulação da caixa de entrada do WhatsApp, inserindo o nome em negrito.
 
 ### Phase 2: Options Page & Storage Sync
-**Goal**: Desenvolver a tela de opções da extensão e a sincronização compartilhada dos dados via Chrome Sync.
+**Goal**: Desenvolver a tela de opções da extensão ("Nome Personalizado") e a sincronização compartilhada dos dados via Chrome Sync.
 **Mode**: mvp
 **Depends on**: Phase 1
 **Requirements**: CONF-01, CONF-02
 **Success Criteria** (what must be TRUE):
-  1. Página de Opções permite configurar o nome do atendente e cadastrar grupos/prestadores favoritos.
+  1. Página de Opções permite cadastrar múltiplos atendentes, definir o atendente ativo (estrela) e configurar as opções globais (Acesso rápido, Alerta de Transferência, Letra maiúscula, Não repetir, Controle de Atendimento).
   2. Configurações salvas em um computador são sincronizadas com outros via `chrome.storage.sync`.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: UI da Options Page em React para gerenciamento das configurações da extensão.
-- [ ] 02-02: Wrapper de Storage integrado com `chrome.storage.sync` para sincronia automática de dados.
+- [ ] 02-01: UI da Options Page em React para gerenciamento de múltiplos atendentes e switches de comportamento.
+- [ ] 02-02: Wrapper de Storage integrado com `chrome.storage.sync` para sincronização de dados e atualização reativa do content script.
 
-### Phase 3: Kanban Panel Integration
-**Goal**: Injetar o painel Kanban na interface do WhatsApp de forma responsiva e com suporte a manipulação manual dos cards.
+### Phase 3: Kanban Panel & Attendance Control Integration
+**Goal**: Injetar o painel Kanban e o fluxo de Iniciar/Finalizar Atendimento integrado a etiquetas nativas do WhatsApp Business.
 **Mode**: mvp
 **Depends on**: Phase 2
-**Requirements**: KANB-01, KANB-02
+**Requirements**: KANB-01, KANB-02, STAT-02
 **Success Criteria** (what must be TRUE):
   1. Painel lateral Kanban é injetado no DOM via Shadow DOM para evitar vazamento de estilos.
-  2. Painel pode ser minimizado/maximizado, redimensionando a janela principal do WhatsApp.
-  3. Usuário pode criar e arrastar cards de demanda manualmente entre as colunas do painel lateral.
+  2. Botão "Iniciar Atendimento / Finalizar Atendimento" é injetado no cabeçalho do chat ativo.
+  3. Lógica para verificar a existência de etiqueta para o atendente ativo, com aviso instrutivo e guias de criação se ausente.
+  4. Sincronização de demandas ativas e responsáveis do Kanban via storage.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Injeção do layout e container Shadow DOM para o painel lateral do Kanban no WhatsApp Web.
-- [ ] 03-02: Desenvolvimento do Kanban React com lógica de movimentação de cards e controle de minimizar/maximizar.
+- [ ] 03-01: Injeção do layout Kanban e do botão de "Iniciar Atendimento" com suporte a controle de etiquetas.
+- [ ] 03-02: Desenvolvimento do Kanban React, fluxo de verificação de etiquetas do WhatsApp Business e sincronização de responsáveis.
 
 ### Phase 4: Quick Forward Modal
 **Goal**: Implementar o modal rápido de favoritos para encaminhamento manual agilizado de mensagens.
