@@ -6,7 +6,7 @@ O desenvolvimento do La Home Zap seguirá uma abordagem de MVP Vertical para ent
 
 ## Phases
 
-- [ ] **Phase 1: Foundation & Custom Attendant Name** - Setup da extensão e injeção do nome do atendente em negrito.
+- [x] **Phase 1: Foundation & Custom Attendant Name** - Setup da extensão e injeção do nome do atendente em negrito.
 - [ ] **Phase 2: Options Page & Storage Sync** - Tela de configurações e sincronização automática via storage do Chrome.
 - [ ] **Phase 3: Kanban Panel Integration** - Painel lateral Kanban injetado responsivamente no WhatsApp Web.
 - [ ] **Phase 4: Quick Forward Modal** - Modal de repasse rápido com lista de favoritos.
@@ -26,8 +26,8 @@ O desenvolvimento do La Home Zap seguirá uma abordagem de MVP Vertical para ent
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Setup do esqueleto da extensão Manifest V3, configurações do Vite e arquivo comum de seletores do DOM.
-- [ ] 01-02: Desenvolvimento do Content Script para captura e manipulação da caixa de entrada do WhatsApp, inserindo o nome em negrito.
+- [x] 01-01: Setup do esqueleto da extensão Manifest V3, configurações do Vite e arquivo comum de seletores do DOM.
+- [x] 01-02: Desenvolvimento do Content Script para captura e manipulação da caixa de entrada do WhatsApp, inserindo o nome em negrito.
 
 ### Phase 2: Options Page & Storage Sync
 **Goal**: Desenvolver a tela de opções da extensão e a sincronização compartilhada dos dados via Chrome Sync.
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Custom Attendant Name | 0/2 | Not started | - |
+| 1. Foundation & Custom Attendant Name | 2/2 | Completed | 2026-06-26 |
 | 2. Options Page & Storage Sync | 0/2 | Not started | - |
 | 3. Kanban Panel Integration | 0/2 | Not started | - |
 | 4. Quick Forward Modal | 0/2 | Not started | - |
