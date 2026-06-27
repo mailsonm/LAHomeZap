@@ -14,10 +14,10 @@ export const SELECTORS = {
   searchInput: 'div[contenteditable="true"][data-tab="3"]',
 
   // Active chat header container
-  chatHeader: 'header, [data-testid="conversation-header"]',
+  chatHeader: '#main header, [data-testid="conversation-header"]',
 
   // Active conversation panel area
-  conversationPanel: 'main, [data-testid="conversation-panel"]',
+  conversationPanel: '#main, [data-testid="conversation-panel"]',
 
   // WhatsApp Web main application root wrapper
   appRoot: '#app',

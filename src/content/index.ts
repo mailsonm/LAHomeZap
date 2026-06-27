@@ -211,12 +211,15 @@ function getActiveChatName(): string | null {
     return titleElement.title.trim();
   }
   
-  // 2. Procurar dentro do container de informações da conversa
+  // 2. Procurar dentro do container de informações da conversa (usando quebra de linha de innerText)
   const infoHeader = headerElement.querySelector('[data-testid="conversation-info-header"]') as HTMLElement;
   if (infoHeader) {
-    const nameSpan = infoHeader.querySelector('span[dir="auto"]') as HTMLElement;
-    if (nameSpan && nameSpan.textContent && nameSpan.textContent.trim()) {
-      return nameSpan.textContent.trim();
+    const text = (infoHeader.innerText || '').trim();
+    if (text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) {
+        return lines[0];
+      }
     }
   }
 
