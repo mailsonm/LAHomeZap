@@ -26,7 +26,7 @@ export const SELECTORS = {
   mainLayoutContainer: '#app > div > div',
 
   // WhatsApp Business label tag button inside the chat header or contact action menu
-  labelButton: 'button[title="Etiquetas"], button[title="Labels"], [data-testid="menu-icon-labels"], span[data-icon="tag"], span[data-icon="label"]',
+  labelButton: '[data-testid="label-chat-header-button"], button[title="Etiquetas"], button[title="Labels"], [data-testid="menu-icon-labels"], span[data-icon="tag"], span[data-icon="label"]',
 
   // Nativo labels dialog window container
   labelsDialog: 'div[role="dialog"]',
