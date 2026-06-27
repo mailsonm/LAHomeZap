@@ -17,7 +17,7 @@ export const SELECTORS = {
   chatHeader: 'header, [data-testid="conversation-header"]',
 
   // Active conversation panel area
-  conversationPanel: '[data-testid="conversation-panel"]',
+  conversationPanel: 'main, [data-testid="conversation-panel"]',
 
   // WhatsApp Web main application root wrapper
   appRoot: '#app',
