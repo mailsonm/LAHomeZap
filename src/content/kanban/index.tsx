@@ -25,12 +25,16 @@ export function injectKanban() {
   // Create root element for our extension component
   const rootElement = document.createElement('div');
   rootElement.id = 'la-home-zap-kanban-root';
-  rootElement.style.height = '100%';
+  rootElement.style.position = 'fixed';
+  rootElement.style.right = '0';
+  rootElement.style.top = '0';
+  rootElement.style.height = '100vh';
+  rootElement.style.zIndex = '9999';
   rootElement.style.display = 'flex';
   rootElement.style.flexShrink = '0';
 
-  // Append to the WhatsApp Web flex layout
-  appContainer.appendChild(rootElement);
+  // Append directly to body to avoid flex container overflow clipping
+  document.body.appendChild(rootElement);
 
   // Attach Shadow DOM for style isolation
   const shadowRoot = rootElement.attachShadow({ mode: 'open' });

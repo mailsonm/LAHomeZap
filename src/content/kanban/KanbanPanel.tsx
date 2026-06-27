@@ -52,8 +52,8 @@ function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
 
     const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
     if (appElement) {
-      appElement.style.marginRight = width;
-      appElement.style.transition = 'margin-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+      appElement.style.width = `calc(100% - ${width})`;
+      appElement.style.transition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     }
 
     // Cleanup on unmount
@@ -63,7 +63,7 @@ function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
       }
       const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
       if (appElement) {
-        appElement.style.marginRight = '0px';
+        appElement.style.width = '100%';
       }
     };
   }, [isCollapsed]);
