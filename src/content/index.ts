@@ -200,17 +200,44 @@ function handleFocusIn(event: FocusEvent) {
  */
 function getActiveChatName(): string | null {
   const headerElement = document.querySelector(SELECTORS.chatHeader);
-  if (!headerElement) return null;
+  if (!headerElement) {
+    console.debug('[La Home Zap] Active chat name check failed: Header element not found.');
+    return null;
+  }
   
-  // Resilient check: search for span with dir="auto" and title (standard contact name element in header)
+  // 1. Procurar span com dir="auto" que tenha title
   const titleElement = headerElement.querySelector('span[dir="auto"][title]') as HTMLElement;
   if (titleElement && titleElement.title) {
     return titleElement.title.trim();
   }
   
-  // Fallbacks
-  const fallback = headerElement.querySelector('[data-testid="conversation-info-header"] span, span[dir="auto"]') as HTMLElement;
-  return fallback ? (fallback.getAttribute('title') || fallback.textContent || '').trim() : null;
+  // 2. Procurar dentro do container de informações da conversa
+  const infoHeader = headerElement.querySelector('[data-testid="conversation-info-header"]') as HTMLElement;
+  if (infoHeader) {
+    const nameSpan = infoHeader.querySelector('span[dir="auto"]') as HTMLElement;
+    if (nameSpan && nameSpan.textContent && nameSpan.textContent.trim()) {
+      return nameSpan.textContent.trim();
+    }
+  }
+
+  // 3. Fallback para o primeiro span com dir="auto" que tem texto dentro do header
+  const spans = Array.from(headerElement.querySelectorAll('span[dir="auto"]')) as HTMLElement[];
+  for (const span of spans) {
+    const text = (span.textContent || '').trim();
+    // Evita pegar o status de "online" ou "visto por último"
+    if (text && !text.includes('visto por último') && !text.toLowerCase().includes('online') && !text.toLowerCase().includes('digitando')) {
+      return text;
+    }
+  }
+  
+  // 4. Fallback genérico para qualquer span com title
+  const anyTitleEl = headerElement.querySelector('[title]') as HTMLElement;
+  if (anyTitleEl && anyTitleEl.getAttribute('title')) {
+    return anyTitleEl.getAttribute('title')!.trim();
+  }
+
+  console.debug('[La Home Zap] Active chat name check failed: No contact name element identified.');
+  return null;
 }
 
 /**
@@ -401,24 +428,50 @@ async function triggerLabelsAutomation(attendantName: string, shouldAdd: boolean
   }
 }
 
+let lastButtonCheckLogTime = 0;
+
 /**
  * Appends the Attendance Control button inside the conversation panel.
  */
 function checkAndInjectAttendanceButton() {
+  const now = Date.now();
+  const shouldLogDebug = now - lastButtonCheckLogTime > 5000; // Log status every 5 seconds to avoid flooding
+
   // If control feature is globally disabled, remove any leftover buttons and exit
   if (!cachedSettings.attendanceControl) {
     const existing = document.getElementById('la-home-zap-attendance-btn');
     if (existing) {
       existing.parentElement?.removeChild(existing);
     }
+    if (shouldLogDebug) {
+      console.debug('[La Home Zap] Attendance button check: Feature disabled in settings.');
+      lastButtonCheckLogTime = now;
+    }
     return;
   }
 
   const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
-  if (!conversationPanel) return;
+  if (!conversationPanel) {
+    if (shouldLogDebug) {
+      console.debug('[La Home Zap] Attendance button check: conversationPanel element not found.');
+      lastButtonCheckLogTime = now;
+    }
+    return;
+  }
 
   const chatName = getActiveChatName();
-  if (!chatName) return;
+  if (!chatName) {
+    if (shouldLogDebug) {
+      console.debug('[La Home Zap] Attendance button check: chatName is null.');
+      lastButtonCheckLogTime = now;
+    }
+    return;
+  }
+
+  if (shouldLogDebug) {
+    console.debug('[La Home Zap] Attendance button check: active chat is', chatName);
+    lastButtonCheckLogTime = now;
+  }
 
   // Render button if not already present
   let btnContainer = document.getElementById('la-home-zap-attendance-btn');
