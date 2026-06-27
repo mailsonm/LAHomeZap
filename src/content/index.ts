@@ -201,7 +201,7 @@ function handleFocusIn(event: FocusEvent) {
 function getActiveChatName(): string | null {
   const headerElement = document.querySelector(SELECTORS.chatHeader);
   if (!headerElement) {
-    console.debug('[La Home Zap] Active chat name check failed: Header element not found.');
+    console.log('[La Home Zap] Active chat name check failed: Header element not found.');
     return null;
   }
   
@@ -236,7 +236,7 @@ function getActiveChatName(): string | null {
     return anyTitleEl.getAttribute('title')!.trim();
   }
 
-  console.debug('[La Home Zap] Active chat name check failed: No contact name element identified.');
+  console.log('[La Home Zap] Active chat name check failed: No contact name element identified.');
   return null;
 }
 
@@ -437,41 +437,30 @@ function checkAndInjectAttendanceButton() {
   const now = Date.now();
   const shouldLogDebug = now - lastButtonCheckLogTime > 5000; // Log status every 5 seconds to avoid flooding
 
+  const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
+  const chatName = getActiveChatName();
+
+  if (shouldLogDebug) {
+    console.log('[La Home Zap] Attendance button diagnostic:', {
+      attendanceControlEnabled: cachedSettings.attendanceControl,
+      conversationPanelFound: !!conversationPanel,
+      chatName: chatName,
+      activeAttendances: activeAttendances
+    });
+    lastButtonCheckLogTime = now;
+  }
+
   // If control feature is globally disabled, remove any leftover buttons and exit
   if (!cachedSettings.attendanceControl) {
     const existing = document.getElementById('la-home-zap-attendance-btn');
     if (existing) {
       existing.parentElement?.removeChild(existing);
     }
-    if (shouldLogDebug) {
-      console.debug('[La Home Zap] Attendance button check: Feature disabled in settings.');
-      lastButtonCheckLogTime = now;
-    }
     return;
   }
 
-  const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
-  if (!conversationPanel) {
-    if (shouldLogDebug) {
-      console.debug('[La Home Zap] Attendance button check: conversationPanel element not found.');
-      lastButtonCheckLogTime = now;
-    }
-    return;
-  }
-
-  const chatName = getActiveChatName();
-  if (!chatName) {
-    if (shouldLogDebug) {
-      console.debug('[La Home Zap] Attendance button check: chatName is null.');
-      lastButtonCheckLogTime = now;
-    }
-    return;
-  }
-
-  if (shouldLogDebug) {
-    console.debug('[La Home Zap] Attendance button check: active chat is', chatName);
-    lastButtonCheckLogTime = now;
-  }
+  if (!conversationPanel) return;
+  if (!chatName) return;
 
   // Render button if not already present
   let btnContainer = document.getElementById('la-home-zap-attendance-btn');
