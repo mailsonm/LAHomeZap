@@ -401,6 +401,13 @@ async function triggerLabelsAutomation(attendantName: string, shouldAdd: boolean
           delete updated[chatName];
         }
         persistActiveAttendances(updated);
+
+        // Send welcome message if starting attendance
+        if (shouldAdd) {
+          setTimeout(() => {
+            sendWelcomeMessage(attendantName);
+          }, 600);
+        }
       }
     }, 150);
 
@@ -561,20 +568,18 @@ function checkAndInjectAttendanceButton() {
 /**
  * Sends a pre-formatted transfer alert message inside the chat window.
  */
-function sendTransferMessage(from: string, to: string, reasonText: string) {
+/**
+ * Focuses and types a message into the WhatsApp input area, then triggers send.
+ */
+function sendChatMessage(text: string) {
   const inputElement = (document.querySelector(SELECTORS.chatInput) || 
                          document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
   if (!inputElement) return;
 
-  const headerText = `*--- TRANSFERÊNCIA DE ATENDIMENTO ---*\n`;
-  const bodyText = `*De:* ${from}\n*Para:* ${to}\n${reasonText ? `*Motivo:* ${reasonText}` : '*Motivo:* Sem observações fornecidas.'}`;
-  const fullText = `${headerText}${bodyText}`;
-
   inputElement.focus();
   try {
-    document.execCommand('insertText', false, fullText);
+    document.execCommand('insertText', false, text);
     
-    // Simulate send button click
     setTimeout(() => {
       const sendBtn = document.querySelector('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]') as HTMLElement;
       if (sendBtn) {
@@ -582,8 +587,53 @@ function sendTransferMessage(from: string, to: string, reasonText: string) {
       }
     }, 150);
   } catch (e) {
-    console.error('[La Home Zap] Failed to send automatic transfer message:', e);
+    console.error('[La Home Zap] Failed to send chat message:', e);
   }
+}
+
+/**
+ * Sends a welcome message dynamically, checking storage for custom "/boasvindas" phrase first.
+ */
+function sendWelcomeMessage(attendantName: string) {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.get(['quickReplies'], (result) => {
+      let welcomeText = `Olá! Sou o atendente *${attendantName}* e vou iniciar seu atendimento na La Home Care. Como posso ajudar você hoje?`;
+      
+      if (result.quickReplies && Array.isArray(result.quickReplies)) {
+        const customWelcome = result.quickReplies.find(r => r.shortcut === 'boasvindas');
+        if (customWelcome && customWelcome.text) {
+          welcomeText = customWelcome.text;
+        }
+      }
+
+      sendChatMessage(welcomeText);
+    });
+  } else {
+    const local = localStorage.getItem('quickReplies');
+    let welcomeText = `Olá! Sou o atendente *${attendantName}* e vou iniciar seu atendimento na La Home Care. Como posso ajudar você hoje?`;
+    if (local) {
+      try {
+        const list = JSON.parse(local);
+        const customWelcome = list.find((r: any) => r.shortcut === 'boasvindas');
+        if (customWelcome && customWelcome.text) {
+          welcomeText = customWelcome.text;
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    sendChatMessage(welcomeText);
+  }
+}
+
+/**
+ * Sends a pre-formatted transfer alert message inside the chat window.
+ */
+function sendTransferMessage(from: string, to: string, reasonText: string) {
+  const headerText = `*--- TRANSFERÊNCIA DE ATENDIMENTO ---*\n`;
+  const bodyText = `*De:* ${from}\n*Para:* ${to}\n${reasonText ? `*Motivo:* ${reasonText}` : '*Motivo:* Sem observações fornecidas.'}`;
+  const fullText = `${headerText}${bodyText}`;
+  sendChatMessage(fullText);
 }
 
 /**
