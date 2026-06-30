@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, ArrowLeft, ArrowRight, Trash2, ChevronLeft, Calendar } from 'lucide-react';
-import { SELECTORS } from '../../utils/selectors';
+import { useState, useEffect } from 'react';
+import { Plus, ArrowLeft, ArrowRight, Trash2, Calendar } from 'lucide-react';
 
 export interface KanbanCard {
   id: string;
@@ -10,13 +9,8 @@ export interface KanbanCard {
   createdAt: string;
 }
 
-interface KanbanPanelProps {
-  initialCollapsed?: boolean;
-}
-
-function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
+function KanbanPanel() {
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -40,33 +34,6 @@ function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
       }
     }
   }, []);
-
-  // Control margins of WhatsApp Web interface dynamically
-  useEffect(() => {
-    const hostElement = document.getElementById('la-home-zap-kanban-root');
-    const width = isCollapsed ? '40px' : '350px';
-    if (hostElement) {
-      hostElement.style.width = width;
-      hostElement.style.transition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-    }
-
-    const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
-    if (appElement) {
-      appElement.style.width = `calc(100% - ${width})`;
-      appElement.style.transition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (hostElement) {
-        hostElement.style.width = '0px';
-      }
-      const appElement = document.querySelector(SELECTORS.appRoot) as HTMLElement;
-      if (appElement) {
-        appElement.style.width = '100%';
-      }
-    };
-  }, [isCollapsed]);
 
   // Persist cards helper
   const persistCards = (updatedList: KanbanCard[]) => {
@@ -190,16 +157,7 @@ function KanbanPanel({ initialCollapsed = false }: KanbanPanelProps) {
   };
 
   return (
-    <div className={`kanban-root-container ${isCollapsed ? 'collapsed' : ''}`} style={{ width: isCollapsed ? '40px' : '350px' }}>
-      {/* Handle sidebar toggle */}
-      <div className="kanban-toggle-handle" onClick={() => setIsCollapsed(!isCollapsed)}>
-        <div className="toggle-icon">
-          <ChevronLeft size={16} />
-        </div>
-        {isCollapsed && <span className="kanban-vertical-title">Kanban</span>}
-      </div>
-
-      {/* Main body of the Kanban panel */}
+    <div className="kanban-root-container" style={{ width: '100%', height: '100%', borderLeft: 'none' }}>
       <div className="kanban-body">
         <div className="kanban-header">
           <h1>Painel Kanban</h1>

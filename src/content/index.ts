@@ -1,5 +1,5 @@
 import { SELECTORS } from '../utils/selectors';
-import { injectKanban } from './kanban/index';
+import { injectKanban, checkAndInjectPhrasebar } from './kanban/index';
 
 interface Attendant {
   id: string;
@@ -520,11 +520,145 @@ function checkAndInjectAttendanceButton() {
   }
 }
 
+/**
+ * Sends a pre-formatted transfer alert message inside the chat window.
+ */
+function sendTransferMessage(from: string, to: string, reasonText: string) {
+  const inputElement = (document.querySelector(SELECTORS.chatInput) || 
+                         document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
+  if (!inputElement) return;
+
+  const headerText = `*--- TRANSFERÊNCIA DE ATENDIMENTO ---*\n`;
+  const bodyText = `*De:* ${from}\n*Para:* ${to}\n${reasonText ? `*Motivo:* ${reasonText}` : '*Motivo:* Sem observações fornecidas.'}`;
+  const fullText = `${headerText}${bodyText}`;
+
+  inputElement.focus();
+  try {
+    document.execCommand('insertText', false, fullText);
+    
+    // Simulate send button click
+    setTimeout(() => {
+      const sendBtn = document.querySelector('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]') as HTMLElement;
+      if (sendBtn) {
+        sendBtn.click();
+      }
+    }, 150);
+  } catch (e) {
+    console.error('[La Home Zap] Failed to send automatic transfer message:', e);
+  }
+}
+
+/**
+ * Coordinates label switching and optional transfer message injection inside a single workflow.
+ */
+async function triggerTransferAutomation(currentAttendant: string, targetAttendant: string, chatName: string, reasonText: string) {
+  const labelBtn = document.querySelector(SELECTORS.labelButton) as HTMLElement;
+  if (!labelBtn) {
+    alert('Erro: Botão de etiquetas nativo do WhatsApp não encontrado.');
+    return;
+  }
+  labelBtn.click();
+
+  const dialog = await waitForElement(SELECTORS.labelsDialog);
+  if (!dialog) {
+    console.error('[La Home Zap] Native labels dialog failed to render.');
+    return;
+  }
+
+  const targetLabel = targetAttendant.toLowerCase();
+  const targetLabelWithColon = `${targetAttendant}:`.toLowerCase();
+  const currentLabel = currentAttendant.toLowerCase();
+  const currentLabelWithColon = `${currentAttendant}:`.toLowerCase();
+
+  const items = Array.from(dialog.querySelectorAll('div'));
+  let currentLabelItem: HTMLElement | null = null;
+  let targetLabelItem: HTMLElement | null = null;
+
+  for (const item of items) {
+    const text = (item.textContent || '').trim().toLowerCase();
+    if (text === currentLabel || text === currentLabelWithColon) {
+      currentLabelItem = item.closest('li') || item;
+    }
+    if (text === targetLabel || text === targetLabelWithColon) {
+      targetLabelItem = item.closest('li') || item;
+    }
+  }
+
+  // 1. Remove current tag
+  if (currentLabelItem) {
+    const checkbox = currentLabelItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const isChecked = checkbox ? checkbox.checked : false;
+    if (isChecked) {
+      currentLabelItem.click();
+    }
+  }
+
+  // 2. Apply target tag if exists
+  if (targetLabelItem) {
+    const checkbox = targetLabelItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const isChecked = checkbox ? checkbox.checked : false;
+    if (!isChecked) {
+      await new Promise(r => setTimeout(r, 100)); // Short tick to prevent click conflicts
+      targetLabelItem.click();
+    }
+
+    // 3. Save
+    setTimeout(() => {
+      const saveBtn = dialog.querySelector(SELECTORS.labelsDialogSaveBtn) as HTMLElement;
+      if (saveBtn) {
+        saveBtn.click();
+
+        // Persist change
+        const updated = { ...activeAttendances };
+        updated[chatName] = targetAttendant;
+        persistActiveAttendances(updated);
+
+        // 4. Send Transfer alert details in chat
+        setTimeout(() => {
+          sendTransferMessage(currentAttendant, targetAttendant, reasonText);
+        }, 600);
+      }
+    }, 200);
+
+  } else {
+    // Label does not exist
+    showMissingLabelDialog(targetAttendant, async () => {
+      const formattedLabel = targetAttendant.endsWith(':') ? targetAttendant : `${targetAttendant}:`;
+      try {
+        await navigator.clipboard.writeText(formattedLabel);
+      } catch (e) {
+        console.warn(e);
+      }
+      const addNewBtn = dialog.querySelector(SELECTORS.labelsDialogAddNewBtn) as HTMLElement;
+      if (addNewBtn) {
+        addNewBtn.click();
+      } else {
+        alert(`Cole "${formattedLabel}" na criação da nova etiqueta.`);
+      }
+    });
+  }
+}
+
 // Bootstrap initialization
 initExtensionConfig();
 injectKanban();
 
 document.addEventListener('focusin', handleFocusIn, true);
-setInterval(checkAndInjectAttendanceButton, 1000);
 
+// Loop for periodic UI rendering checks
+setInterval(() => {
+  checkAndInjectAttendanceButton();
+  checkAndInjectPhrasebar();
+}, 1000);
+
+// Capture React Custom Event triggers
+window.addEventListener('la-home-zap-transfer-chat', (event: any) => {
+  const { targetAttendant, reason, chatName } = event.detail;
+  let from = cachedAttendantName;
+  if (cachedSettings.capitalizeInitial) {
+    from = capitalize(from);
+  }
+  const to = cachedSettings.capitalizeInitial ? capitalize(targetAttendant) : targetAttendant;
+  triggerTransferAutomation(from, to, chatName, reason);
+});
 console.log('[La Home Zap] Content script initialized.');

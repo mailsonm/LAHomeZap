@@ -13,6 +13,9 @@ export const SELECTORS = {
   // Search bar input to differentiate from chat input
   searchInput: 'div[contenteditable="true"][data-tab="3"]',
 
+  // Active chat footer container that holds the input bar
+  chatFooter: 'footer',
+
   // Active chat header container
   chatHeader: '#main header, [data-testid="conversation-header"]',
 
