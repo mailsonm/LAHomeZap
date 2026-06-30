@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 // Local cached configurations
 let cachedAttendantName = 'Coordenação';
+let cachedAttendants: Attendant[] = [];
 let cachedSettings: Settings = DEFAULT_SETTINGS;
 let activeAttendances: Record<string, string> = {};
 
@@ -32,6 +33,7 @@ let activeAttendances: Record<string, string> = {};
  * Updates local cache from the raw attendants list.
  */
 function updateAttendantCache(attendantsList: Attendant[]) {
+  cachedAttendants = attendantsList || [];
   if (Array.isArray(attendantsList) && attendantsList.length > 0) {
     const favorite = attendantsList.find(a => a.isFavorite);
     if (favorite) {
@@ -431,6 +433,39 @@ async function triggerLabelsAutomation(attendantName: string, shouldAdd: boolean
   }
 }
 
+/**
+ * Reads the active chat header to see if a native business label matching any registered attendant is applied.
+ */
+function getActiveAttendantFromDOM(): string | null {
+  const labelBtn = document.querySelector('[data-testid="label-chat-header-button"]') as HTMLElement;
+  if (!labelBtn) return null;
+
+  const btnText = (labelBtn.innerText || '').trim();
+  if (!btnText) return null;
+
+  const lowerBtnText = btnText.toLowerCase();
+
+  // If it's just the default text or an icon placeholder, no label is applied
+  if (lowerBtnText.includes('etiqueta') || lowerBtnText.includes('label')) {
+    return null;
+  }
+
+  // Check if it matches any registered attendant (case-insensitive)
+  const normalizedText = btnText.replace(':', '').trim().toLowerCase();
+  for (const att of cachedAttendants) {
+    if (att.name.toLowerCase() === normalizedText) {
+      return att.name;
+    }
+  }
+
+  // Fallback check if it looks like an attendant label even if not cached
+  if (btnText.endsWith(':')) {
+    return btnText.slice(0, -1).trim();
+  }
+
+  return btnText;
+}
+
 let lastButtonCheckLogTime = 0;
 
 /**
@@ -443,11 +478,17 @@ function checkAndInjectAttendanceButton() {
   const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
   const chatName = getActiveChatName();
 
+  // Read current active attendant from DOM label or fallback to storage sync state
+  const attendantFromDOM = getActiveAttendantFromDOM();
+  const activeAttendantForChat = attendantFromDOM || (chatName ? activeAttendances[chatName] : undefined);
+  const isBeingAttended = activeAttendantForChat !== undefined && activeAttendantForChat !== null;
+
   if (shouldLogDebug) {
     console.log('[La Home Zap] Attendance button diagnostic:', {
       attendanceControlEnabled: cachedSettings.attendanceControl,
       conversationPanelFound: !!conversationPanel,
       chatName: chatName,
+      activeAttendantFromDOM: attendantFromDOM,
       activeAttendances: activeAttendances
     });
     lastButtonCheckLogTime = now;
@@ -481,10 +522,6 @@ function checkAndInjectAttendanceButton() {
     conversationPanel.appendChild(btnContainer);
   }
 
-  // Check if this chat name is currently being attended by the active attendant
-  const activeAttendantForChat = activeAttendances[chatName];
-  const isBeingAttended = activeAttendantForChat !== undefined;
-
   let name = cachedAttendantName;
   if (cachedSettings.capitalizeInitial) {
     name = capitalize(name);
@@ -515,7 +552,8 @@ function checkAndInjectAttendanceButton() {
   const actionBtn = btnContainer.querySelector('#la-home-zap-action-btn') as HTMLElement;
   if (actionBtn) {
     actionBtn.addEventListener('click', () => {
-      triggerLabelsAutomation(name, !isBeingAttended, chatName);
+      const targetName = isBeingAttended ? (activeAttendantForChat || name) : name;
+      triggerLabelsAutomation(targetName, !isBeingAttended, chatName);
     });
   }
 }

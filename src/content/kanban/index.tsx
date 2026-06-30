@@ -26,6 +26,7 @@ export function injectKanban() {
   rootElement.style.zIndex = '9999';
   rootElement.style.display = 'flex';
   rootElement.style.flexShrink = '0';
+  rootElement.style.overflow = 'hidden';
 
   // Append directly to body to avoid flex container overflow clipping
   document.body.appendChild(rootElement);
