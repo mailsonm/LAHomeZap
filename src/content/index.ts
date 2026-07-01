@@ -28,6 +28,7 @@ let cachedAttendantName = 'Coordenação';
 let cachedAttendants: Attendant[] = [];
 let cachedSettings: Settings = DEFAULT_SETTINGS;
 let activeAttendances: Record<string, string> = {};
+let lastAlertedChat: string | null = null;
 
 /**
  * Updates local cache from the raw attendants list.
@@ -473,6 +474,156 @@ function getActiveAttendantFromDOM(): string | null {
   return btnText;
 }
 
+/**
+ * Renders an elegant Glassmorphism collision alert modal when opening an already attended chat.
+ */
+function showCollisionAlert(attendantName: string) {
+  if (document.getElementById('la-home-zap-collision-alert')) {
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'la-home-zap-collision-alert';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.background = 'rgba(11, 15, 25, 0.6)';
+  overlay.style.backdropFilter = 'blur(8px)';
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.zIndex = '999999';
+  overlay.style.animation = 'fadeIn 0.25s ease-out';
+
+  const modal = document.createElement('div');
+  modal.style.background = '#0b0f19';
+  modal.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+  modal.style.borderRadius = '16px';
+  modal.style.padding = '24px';
+  modal.style.width = '380px';
+  modal.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.6)';
+  modal.style.textAlign = 'center';
+  modal.style.fontFamily = "'Outfit', sans-serif";
+  modal.style.color = '#f8fafc';
+  modal.style.animation = 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+  modal.innerHTML = `
+    <div style="font-size: 40px; margin-bottom: 12px; animation: pulse 2s infinite; display: inline-block;">⚠️</div>
+    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg, #ef4444, #f87171); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Contato em Atendimento</h2>
+    <p style="font-size: 13.5px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px;">
+      Este contato já está sob a responsabilidade de:<br>
+      <strong style="color: #ffffff; font-size: 15px; display: block; margin-top: 6px; font-weight: 600; text-transform: uppercase;">👤 ${attendantName}</strong>
+    </p>
+    <button id="la-home-zap-collision-ok-btn" style="width: 100%; padding: 10px 16px; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);">
+      Entendido
+    </button>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  if (!document.getElementById('la-home-zap-alert-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'la-home-zap-alert-keyframes';
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const okBtn = modal.querySelector('#la-home-zap-collision-ok-btn') as HTMLElement;
+  if (okBtn) {
+    okBtn.addEventListener('click', () => {
+      overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
+      setTimeout(() => {
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      }, 180);
+    });
+  }
+}
+
+/**
+ * Scans the sidebar chatlist rows and injects attendant name badges matching applied tags.
+ */
+function checkAndInjectChatlistBadges() {
+  const rows = document.querySelectorAll(SELECTORS.chatlistRow);
+  if (rows.length === 0) return;
+
+  rows.forEach(row => {
+    const labelPills = Array.from(row.querySelectorAll(SELECTORS.chatlistLabelPill));
+    let activeAttendant: string | null = null;
+
+    for (const pill of labelPills) {
+      const title = (pill.getAttribute('title') || (pill as HTMLElement).innerText || pill.textContent || pill.getAttribute('aria-label') || '').trim();
+      if (!title) continue;
+
+      const normalizedTitle = title.replace(':', '').trim().toLowerCase();
+      for (const att of cachedAttendants) {
+        if (att.name.toLowerCase() === normalizedTitle) {
+          activeAttendant = att.name;
+          break;
+        }
+      }
+
+      if (activeAttendant) break;
+
+      if (title.endsWith(':')) {
+        activeAttendant = title.slice(0, -1).trim();
+        break;
+      }
+    }
+
+    let existingBadge = row.querySelector('.la-home-zap-chatlist-badge') as HTMLElement;
+
+    if (activeAttendant) {
+      if (!existingBadge) {
+        existingBadge = document.createElement('span');
+        existingBadge.className = 'la-home-zap-chatlist-badge';
+        existingBadge.style.fontSize = '10.5px';
+        existingBadge.style.fontWeight = '700';
+        existingBadge.style.color = '#ffffff';
+        existingBadge.style.background = 'linear-gradient(135deg, #0891b2, #06b6d4)';
+        existingBadge.style.padding = '2px 8px';
+        existingBadge.style.borderRadius = '100px';
+        existingBadge.style.marginLeft = '8px';
+        existingBadge.style.boxShadow = '0 2px 6px rgba(6, 182, 212, 0.2)';
+        existingBadge.style.fontFamily = "'Outfit', sans-serif";
+        existingBadge.style.textTransform = 'uppercase';
+        existingBadge.style.display = 'inline-flex';
+        existingBadge.style.alignItems = 'center';
+        existingBadge.style.gap = '3px';
+        existingBadge.style.verticalAlign = 'middle';
+
+        const nameContainer = row.querySelector(SELECTORS.chatlistRowName);
+        if (nameContainer) {
+          nameContainer.parentElement?.appendChild(existingBadge);
+        }
+      }
+      existingBadge.innerHTML = `👤 ${activeAttendant}`;
+    } else {
+      if (existingBadge) {
+        existingBadge.parentElement?.removeChild(existingBadge);
+      }
+    }
+  });
+}
+
 let lastButtonCheckLogTime = 0;
 
 /**
@@ -489,6 +640,16 @@ function checkAndInjectAttendanceButton() {
   const attendantFromDOM = getActiveAttendantFromDOM();
   const activeAttendantForChat = attendantFromDOM || (chatName ? activeAttendances[chatName] : undefined);
   const isBeingAttended = activeAttendantForChat !== undefined && activeAttendantForChat !== null;
+
+  // Collision Detection Logic
+  if (chatName && chatName !== lastAlertedChat) {
+    lastAlertedChat = chatName;
+    const currentAttendantNormalized = cachedAttendantName.trim().toLowerCase();
+    const activeNormalized = attendantFromDOM ? attendantFromDOM.trim().toLowerCase() : '';
+    if (activeNormalized && activeNormalized !== currentAttendantNormalized) {
+      showCollisionAlert(attendantFromDOM as string);
+    }
+  }
 
   if (shouldLogDebug) {
     console.log('[La Home Zap] Attendance button diagnostic:', {
@@ -737,6 +898,7 @@ document.addEventListener('focusin', handleFocusIn, true);
 setInterval(() => {
   checkAndInjectAttendanceButton();
   checkAndInjectPhrasebar();
+  checkAndInjectChatlistBadges();
 }, 1000);
 
 // Capture React Custom Event triggers

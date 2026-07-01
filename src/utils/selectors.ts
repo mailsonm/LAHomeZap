@@ -38,5 +38,10 @@ export const SELECTORS = {
   labelsDialogSaveBtn: 'button[data-testid="popup-controls-ok"], div[data-testid="popup-controls-ok"], button.x889uue',
 
   // Native button to create a new label inside the dialog
-  labelsDialogAddNewBtn: 'div[data-testid="add-label"], button[data-testid="add-label"]'
+  labelsDialogAddNewBtn: 'div[data-testid="add-label"], button[data-testid="add-label"]',
+
+  // Chatlist selectors for sidebar visualization
+  chatlistRow: '[data-testid="cell-frame-container"], [data-testid="list-item"]',
+  chatlistLabelPill: 'span[data-label-id]',
+  chatlistRowName: '[data-testid="chat-title"], span[dir="auto"]'
 };
