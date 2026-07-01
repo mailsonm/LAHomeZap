@@ -34,6 +34,7 @@ let cachedAttendants: Attendant[] = [];
 let cachedSettings: Settings = DEFAULT_SETTINGS;
 let activeAttendances: Record<string, string> = {};
 let lastAlertedChat: string | null = null;
+let shouldReinjectSignature = false;
 
 /**
  * Updates local cache from the raw attendants list.
@@ -171,6 +172,38 @@ function isChatInput(element: HTMLElement): boolean {
 }
 
 /**
+ * Inserts text into a contenteditable element simulating Shift+Enter for newlines.
+ * This ensures compatibility with Draft.js used in WhatsApp Web.
+ */
+function insertTextWithNewlines(input: HTMLElement, text: string) {
+  input.focus();
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i]) {
+      try {
+        document.execCommand('insertText', false, lines[i]);
+      } catch (e) {
+        console.error('[La Home Zap] execCommand fail:', e);
+      }
+    }
+    
+    // Dispatch Shift+Enter event to create a real newline
+    if (i !== lines.length - 1) {
+      const shiftEnterEvent = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+      input.dispatchEvent(shiftEnterEvent);
+    }
+  }
+}
+
+/**
  * Formats the signature of the active attendant based on its style configurations.
  */
 function formatAttendantSignature(attendant: Attendant): string {
@@ -201,7 +234,7 @@ function formatAttendantSignature(attendant: Attendant): string {
 
   // 5. Quebra linha (newline after signature)
   if (attendant.quebraLinha !== false) { // Default is true if undefined
-    name = `${name}\n\n`;
+    name = `${name}\n`;
   } else {
     name = `${name} `;
   }
@@ -233,9 +266,8 @@ function injectSignatureIntoInput(target: HTMLElement) {
 
   const signature = formatAttendantSignature(activeAtt);
 
-  target.focus();
   try {
-    document.execCommand('insertText', false, signature);
+    insertTextWithNewlines(target, signature);
   } catch (error) {
     console.error('[La Home Zap] Failed to inject signature:', error);
   }
@@ -797,9 +829,8 @@ function sendChatMessage(text: string) {
                          document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
   if (!inputElement) return;
 
-  inputElement.focus();
   try {
-    document.execCommand('insertText', false, text);
+    insertTextWithNewlines(inputElement, text);
     
     setTimeout(() => {
       const sendBtn = document.querySelector('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]') as HTMLElement;
@@ -963,11 +994,7 @@ document.addEventListener('keydown', (event) => {
 
   // If Enter is pressed without Shift (which sends the message)
   if (event.key === 'Enter' && !event.shiftKey) {
-    setTimeout(() => {
-      if (target.textContent?.trim().length === 0) {
-        injectSignatureIntoInput(target);
-      }
-    }, 100);
+    shouldReinjectSignature = true;
   }
 }, true);
 
@@ -976,15 +1003,21 @@ document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
   const sendBtn = target.closest('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]');
   if (sendBtn) {
-    setTimeout(() => {
-      const input = (document.querySelector(SELECTORS.chatInput) || 
-                     document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
-      if (input && input.textContent?.trim().length === 0) {
-        injectSignatureIntoInput(input);
-      }
-    }, 150);
+    shouldReinjectSignature = true;
   }
 }, true);
+
+// Fast loop (150ms) to check and reinject signature if input was cleared after sending
+setInterval(() => {
+  if (shouldReinjectSignature) {
+    const input = (document.querySelector(SELECTORS.chatInput) || 
+                   document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
+    if (input && input.textContent?.trim().length === 0) {
+      injectSignatureIntoInput(input);
+      shouldReinjectSignature = false;
+    }
+  }
+}, 150);
 
 // Loop for periodic UI rendering checks
 setInterval(() => {
