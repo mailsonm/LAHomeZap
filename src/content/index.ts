@@ -5,6 +5,11 @@ interface Attendant {
   id: string;
   name: string;
   isFavorite: boolean;
+  quebraLinha?: boolean;
+  negrito?: boolean;
+  italico?: boolean;
+  moldura?: boolean;
+  destaque?: boolean;
 }
 
 interface Settings {
@@ -166,6 +171,45 @@ function isChatInput(element: HTMLElement): boolean {
 }
 
 /**
+ * Formats the signature of the active attendant based on its style configurations.
+ */
+function formatAttendantSignature(attendant: Attendant): string {
+  let name = attendant.name;
+  if (cachedSettings.capitalizeInitial) {
+    name = capitalize(name);
+  }
+
+  // 1. Moldura (brackets)
+  if (attendant.moldura) {
+    name = `[${name}]`;
+  }
+
+  // 2. Negrito (bold)
+  if (attendant.negrito !== false) { // Default is true if undefined
+    name = `*${name}*`;
+  }
+
+  // 3. Itálico (italic)
+  if (attendant.italico) {
+    name = `_${name}_`;
+  }
+
+  // 4. Destaque (blockquote)
+  if (attendant.destaque) {
+    name = `> ${name}`;
+  }
+
+  // 5. Quebra linha (newline after signature)
+  if (attendant.quebraLinha !== false) { // Default is true if undefined
+    name = `${name}\n`;
+  } else {
+    name = `${name} `;
+  }
+
+  return name;
+}
+
+/**
  * Handles message input focus to inject the signature.
  */
 function handleFocusIn(event: FocusEvent) {
@@ -188,7 +232,16 @@ function handleFocusIn(event: FocusEvent) {
     return;
   }
 
-  const signature = `*Atendente: ${name}*\n\n`;
+  // Find active attendant object to retrieve formats
+  const activeAtt = cachedAttendants.find(a => a.name.toLowerCase() === cachedAttendantName.toLowerCase()) || {
+    id: 'default',
+    name: cachedAttendantName,
+    isFavorite: true,
+    quebraLinha: true,
+    negrito: true
+  };
+
+  const signature = formatAttendantSignature(activeAtt);
 
   target.focus();
   try {

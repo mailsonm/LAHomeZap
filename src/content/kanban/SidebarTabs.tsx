@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Columns3, Zap, ArrowRightLeft, ChevronRight } from 'lucide-react';
+import { Columns3, Zap, ArrowRightLeft, ChevronRight, UserCircle } from 'lucide-react';
 import KanbanPanel from './KanbanPanel';
 import QuickReplies from './QuickReplies';
 import TransferTab from './TransferTab';
+import AttendantManager from './AttendantManager';
 import { SELECTORS } from '../../utils/selectors';
 
-type TabType = 'kanban' | 'replies' | 'transfer' | null;
+type TabType = 'attendants' | 'kanban' | 'replies' | 'transfer' | null;
 
 function SidebarTabs() {
   const [activeTab, setActiveTab] = useState<TabType>(null);
@@ -46,6 +47,7 @@ function SidebarTabs() {
     <div className="la-home-zap-sidebar-root">
       {/* Sliding Drawer Container */}
       <div className={`la-home-zap-drawer ${activeTab ? 'open' : ''}`}>
+        {activeTab === 'attendants' && <AttendantManager />}
         {activeTab === 'kanban' && <KanbanPanel />}
         {activeTab === 'replies' && <QuickReplies />}
         {activeTab === 'transfer' && <TransferTab />}
@@ -53,6 +55,15 @@ function SidebarTabs() {
 
       {/* Control vertical navigation bar */}
       <div className="la-home-zap-navbar">
+        <button
+          type="button"
+          className={`la-home-zap-nav-btn ${activeTab === 'attendants' ? 'active' : ''}`}
+          onClick={() => handleTabClick('attendants')}
+          data-tooltip="Nome Personalizado"
+        >
+          <UserCircle size={20} />
+        </button>
+
         <button
           type="button"
           className={`la-home-zap-nav-btn ${activeTab === 'kanban' ? 'active' : ''}`}
