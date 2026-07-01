@@ -201,7 +201,7 @@ function formatAttendantSignature(attendant: Attendant): string {
 
   // 5. Quebra linha (newline after signature)
   if (attendant.quebraLinha !== false) { // Default is true if undefined
-    name = `${name}\n`;
+    name = `${name}\n\n`;
   } else {
     name = `${name} `;
   }
@@ -210,19 +210,9 @@ function formatAttendantSignature(attendant: Attendant): string {
 }
 
 /**
- * Handles message input focus to inject the signature.
+ * Focuses and inserts the attendant signature block into the given editable input.
  */
-function handleFocusIn(event: FocusEvent) {
-  const target = event.target as HTMLElement;
-  if (!target || !isChatInput(target)) {
-    return;
-  }
-
-  const textContent = target.textContent || '';
-  if (textContent.trim().length > 0) {
-    return;
-  }
-
+function injectSignatureIntoInput(target: HTMLElement) {
   let name = cachedAttendantName;
   if (cachedSettings.capitalizeInitial) {
     name = capitalize(name);
@@ -249,6 +239,23 @@ function handleFocusIn(event: FocusEvent) {
   } catch (error) {
     console.error('[La Home Zap] Failed to inject signature:', error);
   }
+}
+
+/**
+ * Handles message input focus to inject the signature.
+ */
+function handleFocusIn(event: FocusEvent) {
+  const target = event.target as HTMLElement;
+  if (!target || !isChatInput(target)) {
+    return;
+  }
+
+  const textContent = target.textContent || '';
+  if (textContent.trim().length > 0) {
+    return;
+  }
+
+  injectSignatureIntoInput(target);
 }
 
 /**
@@ -946,6 +953,38 @@ initExtensionConfig();
 injectKanban();
 
 document.addEventListener('focusin', handleFocusIn, true);
+
+// Global listener to reinject signature after sending message via Enter key
+document.addEventListener('keydown', (event) => {
+  const target = event.target as HTMLElement;
+  if (!target || !isChatInput(target)) {
+    return;
+  }
+
+  // If Enter is pressed without Shift (which sends the message)
+  if (event.key === 'Enter' && !event.shiftKey) {
+    setTimeout(() => {
+      if (target.textContent?.trim().length === 0) {
+        injectSignatureIntoInput(target);
+      }
+    }, 100);
+  }
+}, true);
+
+// Global listener to reinject signature after sending message via Send Button click
+document.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement;
+  const sendBtn = target.closest('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]');
+  if (sendBtn) {
+    setTimeout(() => {
+      const input = (document.querySelector(SELECTORS.chatInput) || 
+                     document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
+      if (input && input.textContent?.trim().length === 0) {
+        injectSignatureIntoInput(input);
+      }
+    }, 150);
+  }
+}, true);
 
 // Loop for periodic UI rendering checks
 setInterval(() => {
