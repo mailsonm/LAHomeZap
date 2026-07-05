@@ -1,90 +1,70 @@
+/**
+ * La Home Zap — Content Script Bootstrap
+ *
+ * This is the entry point for the WhatsApp Web content script.
+ * It initializes configuration, sets up event listeners, and coordinates
+ * the modular subsystems for signature, attendance, transfer, collision, and badges.
+ */
+
 import { SELECTORS } from '../utils/selectors';
+import { hasChromeStorage, onStorageChanged, storageSet } from '../utils/storage';
+import type { Attendant, Settings, ActiveAttendances } from '../types';
+import { DEFAULT_SETTINGS, FALLBACK_ATTENDANT_NAME } from '../constants';
 import { injectKanban, checkAndInjectPhrasebar } from './kanban/index';
+import { isChatInput, getChatInput } from './dom-helpers';
+import { resolveDisplayName, injectSignatureIntoInput } from './signature';
+import { checkAndInjectAttendanceButton } from './attendance';
+import { triggerTransferAutomation } from './transfer';
+import { checkAndInjectChatlistBadges } from './badges';
 
-interface Attendant {
-  id: string;
-  name: string;
-  isFavorite: boolean;
-  quebraLinha?: boolean;
-  negrito?: boolean;
-  italico?: boolean;
-  moldura?: boolean;
-  destaque?: boolean;
-}
+// ---------------------------------------------------------------------------
+// Module-level cached state
+// ---------------------------------------------------------------------------
 
-interface Settings {
-  quickAccess: boolean;
-  transferAlert: boolean;
-  attendanceControl: boolean;
-  capitalizeInitial: boolean;
-  dontRepeatInChat: boolean;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  quickAccess: true,
-  transferAlert: false,
-  attendanceControl: true,
-  capitalizeInitial: true,
-  dontRepeatInChat: false
-};
-
-// Local cached configurations
-let cachedAttendantName = 'Coordenação';
+let cachedAttendantName = FALLBACK_ATTENDANT_NAME;
 let cachedAttendants: Attendant[] = [];
 let cachedSettings: Settings = DEFAULT_SETTINGS;
-let activeAttendances: Record<string, string> = {};
-let lastAlertedChat: string | null = null;
+let activeAttendances: ActiveAttendances = {};
 let shouldReinjectSignature = false;
 
-/**
- * Updates local cache from the raw attendants list.
- */
+// Mutable ref object for passing to functions that need to update lastAlertedChat
+const lastAlertedChatRef = { value: null as string | null };
+
+// ---------------------------------------------------------------------------
+// Cache management
+// ---------------------------------------------------------------------------
+
 function updateAttendantCache(attendantsList: Attendant[]) {
   cachedAttendants = attendantsList || [];
   if (Array.isArray(attendantsList) && attendantsList.length > 0) {
     const favorite = attendantsList.find(a => a.isFavorite);
-    if (favorite) {
-      cachedAttendantName = favorite.name;
-    } else {
-      cachedAttendantName = attendantsList[0].name;
-    }
+    cachedAttendantName = favorite ? favorite.name : attendantsList[0].name;
   } else {
-    cachedAttendantName = 'Coordenação';
+    cachedAttendantName = FALLBACK_ATTENDANT_NAME;
   }
 }
 
-/**
- * Loads extension configuration and settings from storage.
- * Setups live listeners to react to changes on the options page instantly.
- */
+function updateActiveAttendancesState(updated: ActiveAttendances) {
+  activeAttendances = updated;
+  storageSet('activeAttendances', updated);
+}
+
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
+
 function initExtensionConfig() {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    // Load initial settings, attendants list, and active attendances
+  if (hasChromeStorage()) {
     chrome.storage.sync.get(['attendants', 'settings', 'activeAttendances'], (result) => {
-      if (result.attendants) {
-        updateAttendantCache(result.attendants);
-      }
-      if (result.settings) {
-        cachedSettings = { ...DEFAULT_SETTINGS, ...result.settings };
-      }
-      if (result.activeAttendances) {
-        activeAttendances = result.activeAttendances;
-      }
+      if (result.attendants) updateAttendantCache(result.attendants);
+      if (result.settings) cachedSettings = { ...DEFAULT_SETTINGS, ...result.settings };
+      if (result.activeAttendances) activeAttendances = result.activeAttendances;
     });
 
-    // Listen to live changes
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'sync') {
-        if (changes.attendants) {
-          updateAttendantCache(changes.attendants.newValue);
-        }
-        if (changes.settings) {
-          cachedSettings = { ...DEFAULT_SETTINGS, ...changes.settings.newValue };
-        }
-        if (changes.activeAttendances) {
-          activeAttendances = changes.activeAttendances.newValue || {};
-        }
-      }
+    onStorageChanged((changes) => {
+      if (changes.attendants) updateAttendantCache(changes.attendants.newValue as Attendant[]);
+      if (changes.settings) cachedSettings = { ...DEFAULT_SETTINGS, ...changes.settings.newValue as Partial<Settings> };
+      if (changes.activeAttendances) activeAttendances = (changes.activeAttendances.newValue || {}) as ActiveAttendances;
     });
   } else {
     // Fallback to localStorage for development
@@ -92,948 +72,89 @@ function initExtensionConfig() {
       const localAttendants = localStorage.getItem('attendants');
       const localSettings = localStorage.getItem('settings');
       const localAttendances = localStorage.getItem('activeAttendances');
-      if (localAttendants) {
-        updateAttendantCache(JSON.parse(localAttendants));
-      }
-      if (localSettings) {
-        cachedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(localSettings) };
-      }
-      if (localAttendances) {
-        activeAttendances = JSON.parse(localAttendances) || {};
-      }
+      if (localAttendants) updateAttendantCache(JSON.parse(localAttendants));
+      if (localSettings) cachedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(localSettings) };
+      if (localAttendances) activeAttendances = JSON.parse(localAttendances) || {};
     } catch (e) {
       console.warn('[La Home Zap] Storage fallback failed to load:', e);
     }
   }
 }
 
-/**
- * Persists active attendances to storage.
- */
-function persistActiveAttendances(updatedAttendances: Record<string, string>) {
-  activeAttendances = updatedAttendances;
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.set({ activeAttendances: updatedAttendances });
-  } else {
-    localStorage.setItem('activeAttendances', JSON.stringify(updatedAttendances));
-  }
-}
+// ---------------------------------------------------------------------------
+// Signature event handlers
+// ---------------------------------------------------------------------------
 
-/**
- * Helper to capitalize the first letter of a string.
- */
-function capitalize(text: string): string {
-  if (!text) return '';
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-/**
- * Scans the active chat DOM for recent sent messages containing the signature.
- * Prevents multiple signatures from polluting the conversation history.
- */
-function hasRecentSignature(attendantName: string): boolean {
-  const sentMessages = document.querySelectorAll('.message-out');
-  if (sentMessages.length === 0) {
-    return false;
-  }
-
-  const targetText = `Atendente: ${attendantName}`.toLowerCase();
-  const targetBold = `*Atendente: ${attendantName}*`.toLowerCase();
-
-  const limit = Math.min(sentMessages.length, 3);
-  for (let i = 0; i < limit; i++) {
-    const message = sentMessages[sentMessages.length - 1 - i];
-    const text = (message.textContent || '').toLowerCase();
-    
-    if (text.includes(targetText) || text.includes(targetBold)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Checks if the element is the WhatsApp Web main text input.
- */
-function isChatInput(element: HTMLElement): boolean {
-  if (element.matches(SELECTORS.chatInput)) {
-    return true;
-  }
-  
-  if (element.matches(SELECTORS.chatInputFallback)) {
-    if (element.matches(SELECTORS.searchInput)) {
-      return false;
-    }
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Inserts text into a contenteditable element simulating Shift+Enter for newlines.
- * This ensures compatibility with Draft.js used in WhatsApp Web.
- */
-function insertTextWithNewlines(input: HTMLElement, text: string) {
-  input.focus();
-  const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]) {
-      try {
-        document.execCommand('insertText', false, lines[i]);
-      } catch (e) {
-        console.error('[La Home Zap] execCommand fail:', e);
-      }
-    }
-    
-    // Dispatch Shift+Enter event to create a real newline
-    if (i !== lines.length - 1) {
-      const shiftEnterEvent = new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        keyCode: 13,
-        which: 13,
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true
-      });
-      input.dispatchEvent(shiftEnterEvent);
-    }
-  }
-}
-
-/**
- * Formats the signature of the active attendant based on its style configurations.
- */
-function formatAttendantSignature(attendant: Attendant): string {
-  let name = attendant.name;
-  if (cachedSettings.capitalizeInitial) {
-    name = capitalize(name);
-  }
-
-  // 1. Moldura (brackets)
-  if (attendant.moldura) {
-    name = `[${name}]`;
-  }
-
-  // 2. Negrito (bold)
-  if (attendant.negrito !== false) { // Default is true if undefined
-    name = `*${name}*`;
-  }
-
-  // 3. Itálico (italic)
-  if (attendant.italico) {
-    name = `_${name}_`;
-  }
-
-  // 4. Destaque (blockquote)
-  if (attendant.destaque) {
-    name = `> ${name}`;
-  }
-
-  // 5. Quebra linha (newline after signature)
-  if (attendant.quebraLinha !== false) { // Default is true if undefined
-    name = `${name}\n`;
-  } else {
-    name = `${name} `;
-  }
-
-  return name;
-}
-
-/**
- * Focuses and inserts the attendant signature block into the given editable input.
- */
-function injectSignatureIntoInput(target: HTMLElement) {
-  let name = cachedAttendantName;
-  if (cachedSettings.capitalizeInitial) {
-    name = capitalize(name);
-  }
-
-  if (cachedSettings.dontRepeatInChat && hasRecentSignature(name)) {
-    return;
-  }
-
-  // Find active attendant object to retrieve formats
-  const activeAtt = cachedAttendants.find(a => a.name.toLowerCase() === cachedAttendantName.toLowerCase()) || {
-    id: 'default',
-    name: cachedAttendantName,
-    isFavorite: true,
-    quebraLinha: true,
-    negrito: true
-  };
-
-  const signature = formatAttendantSignature(activeAtt);
-
-  try {
-    insertTextWithNewlines(target, signature);
-  } catch (error) {
-    console.error('[La Home Zap] Failed to inject signature:', error);
-  }
-}
-
-/**
- * Handles message input focus to inject the signature.
- */
 function handleFocusIn(event: FocusEvent) {
   const target = event.target as HTMLElement;
-  if (!target || !isChatInput(target)) {
-    return;
-  }
+  if (!target || !isChatInput(target)) return;
 
   const textContent = target.textContent || '';
-  if (textContent.trim().length > 0) {
-    return;
-  }
+  if (textContent.trim().length > 0) return;
 
-  injectSignatureIntoInput(target);
+  injectSignatureIntoInput(target, cachedAttendantName, cachedAttendants, cachedSettings);
 }
 
-/**
- * Gets the active chat/contact name from the conversation header.
- */
-function getActiveChatName(): string | null {
-  const headerElement = document.querySelector(SELECTORS.chatHeader);
-  if (!headerElement) {
-    console.log('[La Home Zap] Active chat name check failed: Header element not found.');
-    return null;
-  }
-  
-  // 1. Procurar span com dir="auto" que tenha title
-  const titleElement = headerElement.querySelector('span[dir="auto"][title]') as HTMLElement;
-  if (titleElement && titleElement.title) {
-    return titleElement.title.trim();
-  }
-  
-  // 2. Procurar dentro do container de informações da conversa (usando quebra de linha de innerText)
-  const infoHeader = headerElement.querySelector('[data-testid="conversation-info-header"]') as HTMLElement;
-  if (infoHeader) {
-    const text = (infoHeader.innerText || '').trim();
-    if (text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length > 0) {
-        return lines[0];
-      }
-    }
-  }
+// ---------------------------------------------------------------------------
+// Bootstrap
+// ---------------------------------------------------------------------------
 
-  // 3. Fallback para o primeiro span com dir="auto" que tem texto dentro do header
-  const spans = Array.from(headerElement.querySelectorAll('span[dir="auto"]')) as HTMLElement[];
-  for (const span of spans) {
-    const text = (span.textContent || '').trim();
-    // Evita pegar o status de "online" ou "visto por último"
-    if (text && !text.includes('visto por último') && !text.toLowerCase().includes('online') && !text.toLowerCase().includes('digitando')) {
-      return text;
-    }
-  }
-  
-  // 4. Fallback genérico para qualquer span com title
-  const anyTitleEl = headerElement.querySelector('[title]') as HTMLElement;
-  if (anyTitleEl && anyTitleEl.getAttribute('title')) {
-    return anyTitleEl.getAttribute('title')!.trim();
-  }
-
-  console.log('[La Home Zap] Active chat name check failed: No contact name element identified.');
-  return null;
-}
-
-/**
- * Helper to dynamically wait for a DOM element.
- */
-function waitForElement(selector: string, timeout = 3000): Promise<HTMLElement | null> {
-  return new Promise((resolve) => {
-    const el = document.querySelector(selector);
-    if (el) return resolve(el as HTMLElement);
-
-    const observer = new MutationObserver(() => {
-      const el = document.querySelector(selector);
-      if (el) {
-        observer.disconnect();
-        resolve(el as HTMLElement);
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    setTimeout(() => {
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
-  });
-}
-
-/**
- * Custom modern dialog popup to notify about missing label.
- */
-function showMissingLabelDialog(name: string, onConfirm: () => void) {
-  const modalWrapper = document.createElement('div');
-  modalWrapper.id = 'la-home-zap-custom-modal';
-  modalWrapper.style.position = 'fixed';
-  modalWrapper.style.top = '0';
-  modalWrapper.style.left = '0';
-  modalWrapper.style.width = '100vw';
-  modalWrapper.style.height = '100vh';
-  modalWrapper.style.background = 'rgba(11, 15, 25, 0.6)';
-  modalWrapper.style.backdropFilter = 'blur(10px)';
-  modalWrapper.style.setProperty('-webkit-backdrop-filter', 'blur(10px)');
-  modalWrapper.style.display = 'flex';
-  modalWrapper.style.alignItems = 'center';
-  modalWrapper.style.justifyContent = 'center';
-  modalWrapper.style.zIndex = '99999';
-  modalWrapper.style.fontFamily = "'Outfit', sans-serif";
-
-  const cleanLabelName = name.endsWith(':') ? name : `${name}:`;
-
-  modalWrapper.innerHTML = `
-    <div style="background: #131a2e; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 20px; width: 440px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: left; color: #f8fafc; animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: #eab308;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span style="font-weight: 700; font-size: 16px; text-transform: uppercase;">Etiqueta não encontrada</span>
-      </div>
-      
-      <p style="font-size: 14px; line-height: 1.5; color: #cbd5e1; margin-bottom: 14px;">
-        A etiqueta <strong style="color: #06b6d4;">"${cleanLabelName}"</strong> não foi encontrada no seu WhatsApp Business!
-      </p>
-      
-      <p style="font-size: 13.5px; line-height: 1.5; color: #94a3b8; margin-bottom: 24px;">
-        Crie essa etiqueta para utilizar o recurso de Controle de Atendimento. Após a criação, ela será aplicada automaticamente às conversas desse atendente, permitindo:<br>
-        • Iniciar e finalizar atendimentos com 1 clique<br>
-        • Identificar o responsável por cada atendimento<br>
-        • Evitar que vários atendentes respondam o mesmo contato ao mesmo tempo.
-      </p>
-      
-      <div style="display: flex; justify-content: flex-end;">
-        <button id="la-home-zap-modal-ok-btn" style="background: #10b981; border: none; border-radius: 8px; color: #fff; padding: 10px 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s ease;">OK</button>
-      </div>
-    </div>
-    
-    <style>
-      @keyframes scaleUp {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
-      }
-      #la-home-zap-modal-ok-btn:hover {
-        background: #059669;
-        transform: translateY(-1px);
-      }
-    </style>
-  `;
-
-  document.body.appendChild(modalWrapper);
-
-  const okBtn = document.getElementById('la-home-zap-modal-ok-btn');
-  if (okBtn) {
-    okBtn.addEventListener('click', () => {
-      document.body.removeChild(modalWrapper);
-      onConfirm();
-    });
-  }
-}
-
-/**
- * Automates the Business Labels workflow to apply or remove the attendant's label.
- */
-async function triggerLabelsAutomation(attendantName: string, shouldAdd: boolean, chatName: string) {
-  // 1. Locate the native tags/labels button and click it
-  const labelBtn = document.querySelector(SELECTORS.labelButton) as HTMLElement;
-  if (!labelBtn) {
-    console.error('[La Home Zap] WhatsApp Business tags/labels button not found.');
-    alert('Erro: Botão de etiquetas nativo do WhatsApp não encontrado.');
-    return;
-  }
-  
-  labelBtn.click();
-
-  // 2. Wait for the native labels dialog to render
-  const dialog = await waitForElement(SELECTORS.labelsDialog);
-  if (!dialog) {
-    console.error('[La Home Zap] Native labels dialog failed to render.');
-    return;
-  }
-
-  // Normalize target names
-  const targetLabel = attendantName.toLowerCase();
-  const targetLabelWithColon = `${attendantName}:`.toLowerCase();
-
-  // 3. Scan list items to locate our attendant label
-  const items = Array.from(dialog.querySelectorAll('div'));
-  let foundLabelItem: HTMLElement | null = null;
-
-  for (const item of items) {
-    const text = (item.textContent || '').trim().toLowerCase();
-    if (text === targetLabel || text === targetLabelWithColon) {
-      // Find the direct clickable container row or checkbox
-      foundLabelItem = item.closest('li') || item;
-      break;
-    }
-  }
-
-  if (foundLabelItem) {
-    // Label exists! Handle click toggling
-    const checkbox = foundLabelItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    
-    const isCurrentlyChecked = checkbox ? checkbox.checked : false;
-    
-    // Toggle only if it mismatches what we want
-    if ((shouldAdd && !isCurrentlyChecked) || (!shouldAdd && isCurrentlyChecked)) {
-      foundLabelItem.click();
-    }
-
-    // Save changes
-    setTimeout(() => {
-      const saveBtn = dialog.querySelector(SELECTORS.labelsDialogSaveBtn) as HTMLElement;
-      if (saveBtn) {
-        saveBtn.click();
-        
-        // Update active attendances
-        const updated = { ...activeAttendances };
-        if (shouldAdd) {
-          updated[chatName] = attendantName;
-        } else {
-          delete updated[chatName];
-        }
-        persistActiveAttendances(updated);
-
-        // Send welcome message if starting attendance
-        if (shouldAdd) {
-          setTimeout(() => {
-            sendWelcomeMessage(attendantName);
-          }, 600);
-        }
-      }
-    }, 150);
-
-  } else {
-    // Label does NOT exist! Trigger alert flow and guide user to create it
-    if (shouldAdd) {
-      showMissingLabelDialog(attendantName, async () => {
-        // Copy label target name to clipboard
-        const formattedLabel = attendantName.endsWith(':') ? attendantName : `${attendantName}:`;
-        try {
-          await navigator.clipboard.writeText(formattedLabel);
-        } catch (e) {
-          console.warn('[La Home Zap] Clipboard copy failed:', e);
-        }
-
-        // Trigger native create flow
-        const addNewBtn = dialog.querySelector(SELECTORS.labelsDialogAddNewBtn) as HTMLElement;
-        if (addNewBtn) {
-          addNewBtn.click();
-        } else {
-          alert(`Cole "${formattedLabel}" na criação da nova etiqueta.`);
-        }
-      });
-    } else {
-      // If we are ending attendance but label is missing, simply reset local state
-      const updated = { ...activeAttendances };
-      delete updated[chatName];
-      persistActiveAttendances(updated);
-    }
-  }
-}
-
-/**
- * Reads the active chat header to see if a native business label matching any registered attendant is applied.
- */
-function getActiveAttendantFromDOM(): string | null {
-  const labelBtn = document.querySelector('[data-testid="label-chat-header-button"]') as HTMLElement;
-  if (!labelBtn) return null;
-
-  const btnText = (labelBtn.innerText || '').trim();
-  if (!btnText) return null;
-
-  const lowerBtnText = btnText.toLowerCase();
-
-  // If it's just the default text or an icon placeholder, no label is applied
-  if (lowerBtnText.includes('etiqueta') || lowerBtnText.includes('label')) {
-    return null;
-  }
-
-  // Check if it matches any registered attendant (case-insensitive)
-  const normalizedText = btnText.replace(':', '').trim().toLowerCase();
-  for (const att of cachedAttendants) {
-    if (att.name.toLowerCase() === normalizedText) {
-      return att.name;
-    }
-  }
-
-  // Fallback check if it looks like an attendant label even if not cached
-  if (btnText.endsWith(':')) {
-    return btnText.slice(0, -1).trim();
-  }
-
-  return btnText;
-}
-
-/**
- * Renders an elegant Glassmorphism collision alert modal when opening an already attended chat.
- */
-function showCollisionAlert(attendantName: string) {
-  if (document.getElementById('la-home-zap-collision-alert')) {
-    return;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.id = 'la-home-zap-collision-alert';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100vw';
-  overlay.style.height = '100vh';
-  overlay.style.background = 'rgba(11, 15, 25, 0.6)';
-  overlay.style.backdropFilter = 'blur(8px)';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.zIndex = '999999';
-  overlay.style.animation = 'fadeIn 0.25s ease-out';
-
-  const modal = document.createElement('div');
-  modal.style.background = '#0b0f19';
-  modal.style.border = '1px solid rgba(239, 68, 68, 0.25)';
-  modal.style.borderRadius = '16px';
-  modal.style.padding = '24px';
-  modal.style.width = '380px';
-  modal.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.6)';
-  modal.style.textAlign = 'center';
-  modal.style.fontFamily = "'Outfit', sans-serif";
-  modal.style.color = '#f8fafc';
-  modal.style.animation = 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-
-  modal.innerHTML = `
-    <div style="font-size: 40px; margin-bottom: 12px; animation: pulse 2s infinite; display: inline-block;">⚠️</div>
-    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg, #ef4444, #f87171); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Contato em Atendimento</h2>
-    <p style="font-size: 13.5px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px;">
-      Este contato já está sob a responsabilidade de:<br>
-      <strong style="color: #ffffff; font-size: 15px; display: block; margin-top: 6px; font-weight: 600; text-transform: uppercase;">👤 ${attendantName}</strong>
-    </p>
-    <button id="la-home-zap-collision-ok-btn" style="width: 100%; padding: 10px 16px; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);">
-      Entendido
-    </button>
-  `;
-
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-
-  if (!document.getElementById('la-home-zap-alert-keyframes')) {
-    const style = document.createElement('style');
-    style.id = 'la-home-zap-alert-keyframes';
-    style.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-      @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.08); }
-        100% { transform: scale(1); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  const okBtn = modal.querySelector('#la-home-zap-collision-ok-btn') as HTMLElement;
-  if (okBtn) {
-    okBtn.addEventListener('click', () => {
-      overlay.style.animation = 'fadeIn 0.2s ease-out reverse';
-      setTimeout(() => {
-        if (overlay.parentNode) {
-          overlay.parentNode.removeChild(overlay);
-        }
-      }, 180);
-    });
-  }
-}
-
-/**
- * Scans the sidebar chatlist rows and injects attendant name badges matching applied tags.
- */
-function checkAndInjectChatlistBadges() {
-  const rows = document.querySelectorAll(SELECTORS.chatlistRow);
-  if (rows.length === 0) return;
-
-  rows.forEach(row => {
-    const labelPills = Array.from(row.querySelectorAll(SELECTORS.chatlistLabelPill));
-    let activeAttendant: string | null = null;
-
-    for (const pill of labelPills) {
-      const title = (pill.getAttribute('title') || (pill as HTMLElement).innerText || pill.textContent || pill.getAttribute('aria-label') || '').trim();
-      if (!title) continue;
-
-      const normalizedTitle = title.replace(':', '').trim().toLowerCase();
-      for (const att of cachedAttendants) {
-        if (att.name.toLowerCase() === normalizedTitle) {
-          activeAttendant = att.name;
-          break;
-        }
-      }
-
-      if (activeAttendant) break;
-
-      if (title.endsWith(':')) {
-        activeAttendant = title.slice(0, -1).trim();
-        break;
-      }
-    }
-
-    let existingBadge = row.querySelector('.la-home-zap-chatlist-badge') as HTMLElement;
-
-    if (activeAttendant) {
-      if (!existingBadge) {
-        existingBadge = document.createElement('span');
-        existingBadge.className = 'la-home-zap-chatlist-badge';
-        existingBadge.style.fontSize = '10.5px';
-        existingBadge.style.fontWeight = '700';
-        existingBadge.style.color = '#ffffff';
-        existingBadge.style.background = 'linear-gradient(135deg, #0891b2, #06b6d4)';
-        existingBadge.style.padding = '2px 8px';
-        existingBadge.style.borderRadius = '100px';
-        existingBadge.style.marginLeft = '8px';
-        existingBadge.style.boxShadow = '0 2px 6px rgba(6, 182, 212, 0.2)';
-        existingBadge.style.fontFamily = "'Outfit', sans-serif";
-        existingBadge.style.textTransform = 'uppercase';
-        existingBadge.style.display = 'inline-flex';
-        existingBadge.style.alignItems = 'center';
-        existingBadge.style.gap = '3px';
-        existingBadge.style.verticalAlign = 'middle';
-
-        const nameContainer = row.querySelector(SELECTORS.chatlistRowName);
-        if (nameContainer) {
-          nameContainer.parentElement?.appendChild(existingBadge);
-        }
-      }
-      existingBadge.innerHTML = `👤 ${activeAttendant}`;
-    } else {
-      if (existingBadge) {
-        existingBadge.parentElement?.removeChild(existingBadge);
-      }
-    }
-  });
-}
-
-let lastButtonCheckLogTime = 0;
-
-/**
- * Appends the Attendance Control button inside the conversation panel.
- */
-function checkAndInjectAttendanceButton() {
-  const now = Date.now();
-  const shouldLogDebug = now - lastButtonCheckLogTime > 5000; // Log status every 5 seconds to avoid flooding
-
-  const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
-  const chatName = getActiveChatName();
-
-  // Read current active attendant from DOM label or fallback to storage sync state
-  const attendantFromDOM = getActiveAttendantFromDOM();
-  const activeAttendantForChat = attendantFromDOM || (chatName ? activeAttendances[chatName] : undefined);
-  const isBeingAttended = activeAttendantForChat !== undefined && activeAttendantForChat !== null;
-
-  // Collision Detection Logic
-  if (chatName && chatName !== lastAlertedChat) {
-    lastAlertedChat = chatName;
-    const currentAttendantNormalized = cachedAttendantName.trim().toLowerCase();
-    const activeNormalized = attendantFromDOM ? attendantFromDOM.trim().toLowerCase() : '';
-    if (activeNormalized && activeNormalized !== currentAttendantNormalized) {
-      showCollisionAlert(attendantFromDOM as string);
-    }
-  }
-
-  if (shouldLogDebug) {
-    console.log('[La Home Zap] Attendance button diagnostic:', {
-      attendanceControlEnabled: cachedSettings.attendanceControl,
-      conversationPanelFound: !!conversationPanel,
-      chatName: chatName,
-      activeAttendantFromDOM: attendantFromDOM,
-      activeAttendances: activeAttendances
-    });
-    lastButtonCheckLogTime = now;
-  }
-
-  // If control feature is globally disabled, remove any leftover buttons and exit
-  if (!cachedSettings.attendanceControl) {
-    const existing = document.getElementById('la-home-zap-attendance-btn');
-    if (existing) {
-      existing.parentElement?.removeChild(existing);
-    }
-    return;
-  }
-
-  if (!conversationPanel) return;
-  if (!chatName) return;
-
-  // Render button if not already present
-  let btnContainer = document.getElementById('la-home-zap-attendance-btn');
-  if (!btnContainer) {
-    btnContainer = document.createElement('div');
-    btnContainer.id = 'la-home-zap-attendance-btn';
-    btnContainer.style.position = 'absolute';
-    btnContainer.style.top = '72px'; // Placed below the chat header
-    btnContainer.style.left = '16px';
-    btnContainer.style.zIndex = '999';
-    btnContainer.style.display = 'flex';
-    btnContainer.style.alignItems = 'center';
-    btnContainer.style.background = 'transparent';
-    btnContainer.style.fontFamily = "'Outfit', sans-serif";
-    conversationPanel.appendChild(btnContainer);
-  }
-
-  let name = cachedAttendantName;
-  if (cachedSettings.capitalizeInitial) {
-    name = capitalize(name);
-  }
-
-  // Update visual state and actions
-  if (isBeingAttended) {
-    btnContainer.innerHTML = `
-      <div style="display: flex; align-items: center; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); animation: fadeIn 0.2s ease;">
-        <button id="la-home-zap-action-btn" style="background: #ef4444; color: #fff; border: none; padding: 8px 16px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s ease; display: flex; align-items: center; gap: 6px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
-          Finalizar Atendimento (${activeAttendantForChat})
-        </button>
-      </div>
-    `;
-  } else {
-    btnContainer.innerHTML = `
-      <div style="display: flex; align-items: center; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); animation: fadeIn 0.2s ease;">
-        <button id="la-home-zap-action-btn" style="background: #10b981; color: #fff; border: none; padding: 8px 16px; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s ease; display: flex; align-items: center; gap: 6px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          Iniciar Atendimento
-        </button>
-      </div>
-    `;
-  }
-
-  // Hook button action
-  const actionBtn = btnContainer.querySelector('#la-home-zap-action-btn') as HTMLElement;
-  if (actionBtn) {
-    actionBtn.addEventListener('click', () => {
-      const targetName = isBeingAttended ? (activeAttendantForChat || name) : name;
-      triggerLabelsAutomation(targetName, !isBeingAttended, chatName);
-    });
-  }
-}
-
-/**
- * Sends a pre-formatted transfer alert message inside the chat window.
- */
-/**
- * Focuses and types a message into the WhatsApp input area, then triggers send.
- */
-function sendChatMessage(text: string) {
-  const inputElement = (document.querySelector(SELECTORS.chatInput) || 
-                         document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
-  if (!inputElement) return;
-
-  try {
-    insertTextWithNewlines(inputElement, text);
-    
-    setTimeout(() => {
-      const sendBtn = document.querySelector('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]') as HTMLElement;
-      if (sendBtn) {
-        sendBtn.click();
-      }
-    }, 150);
-  } catch (e) {
-    console.error('[La Home Zap] Failed to send chat message:', e);
-  }
-}
-
-/**
- * Sends a welcome message dynamically, checking storage for custom "/boasvindas" phrase first.
- */
-function sendWelcomeMessage(attendantName: string) {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.get(['quickReplies'], (result) => {
-      let welcomeText = `Olá! Sou o atendente *${attendantName}* e vou iniciar seu atendimento na La Home Care. Como posso ajudar você hoje?`;
-      
-      if (result.quickReplies && Array.isArray(result.quickReplies)) {
-        const customWelcome = result.quickReplies.find(r => r.shortcut === 'boasvindas');
-        if (customWelcome && customWelcome.text) {
-          welcomeText = customWelcome.text;
-        }
-      }
-
-      sendChatMessage(welcomeText);
-    });
-  } else {
-    const local = localStorage.getItem('quickReplies');
-    let welcomeText = `Olá! Sou o atendente *${attendantName}* e vou iniciar seu atendimento na La Home Care. Como posso ajudar você hoje?`;
-    if (local) {
-      try {
-        const list = JSON.parse(local);
-        const customWelcome = list.find((r: any) => r.shortcut === 'boasvindas');
-        if (customWelcome && customWelcome.text) {
-          welcomeText = customWelcome.text;
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-    sendChatMessage(welcomeText);
-  }
-}
-
-/**
- * Sends a pre-formatted transfer alert message inside the chat window.
- */
-function sendTransferMessage(from: string, to: string, reasonText: string) {
-  const headerText = `*--- TRANSFERÊNCIA DE ATENDIMENTO ---*\n`;
-  const bodyText = `*De:* ${from}\n*Para:* ${to}\n${reasonText ? `*Motivo:* ${reasonText}` : '*Motivo:* Sem observações fornecidas.'}`;
-  const fullText = `${headerText}${bodyText}`;
-  sendChatMessage(fullText);
-}
-
-/**
- * Coordinates label switching and optional transfer message injection inside a single workflow.
- */
-async function triggerTransferAutomation(currentAttendant: string, targetAttendant: string, chatName: string, reasonText: string) {
-  const labelBtn = document.querySelector(SELECTORS.labelButton) as HTMLElement;
-  if (!labelBtn) {
-    alert('Erro: Botão de etiquetas nativo do WhatsApp não encontrado.');
-    return;
-  }
-  labelBtn.click();
-
-  const dialog = await waitForElement(SELECTORS.labelsDialog);
-  if (!dialog) {
-    console.error('[La Home Zap] Native labels dialog failed to render.');
-    return;
-  }
-
-  const targetLabel = targetAttendant.toLowerCase();
-  const targetLabelWithColon = `${targetAttendant}:`.toLowerCase();
-  const currentLabel = currentAttendant.toLowerCase();
-  const currentLabelWithColon = `${currentAttendant}:`.toLowerCase();
-
-  const items = Array.from(dialog.querySelectorAll('div'));
-  let currentLabelItem: HTMLElement | null = null;
-  let targetLabelItem: HTMLElement | null = null;
-
-  for (const item of items) {
-    const text = (item.textContent || '').trim().toLowerCase();
-    if (text === currentLabel || text === currentLabelWithColon) {
-      currentLabelItem = item.closest('li') || item;
-    }
-    if (text === targetLabel || text === targetLabelWithColon) {
-      targetLabelItem = item.closest('li') || item;
-    }
-  }
-
-  // 1. Remove current tag
-  if (currentLabelItem) {
-    const checkbox = currentLabelItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    const isChecked = checkbox ? checkbox.checked : false;
-    if (isChecked) {
-      currentLabelItem.click();
-    }
-  }
-
-  // 2. Apply target tag if exists
-  if (targetLabelItem) {
-    const checkbox = targetLabelItem.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    const isChecked = checkbox ? checkbox.checked : false;
-    if (!isChecked) {
-      await new Promise(r => setTimeout(r, 100)); // Short tick to prevent click conflicts
-      targetLabelItem.click();
-    }
-
-    // 3. Save
-    setTimeout(() => {
-      const saveBtn = dialog.querySelector(SELECTORS.labelsDialogSaveBtn) as HTMLElement;
-      if (saveBtn) {
-        saveBtn.click();
-
-        // Persist change
-        const updated = { ...activeAttendances };
-        updated[chatName] = targetAttendant;
-        persistActiveAttendances(updated);
-
-        // 4. Send Transfer alert details in chat
-        setTimeout(() => {
-          sendTransferMessage(currentAttendant, targetAttendant, reasonText);
-        }, 600);
-      }
-    }, 200);
-
-  } else {
-    // Label does not exist
-    showMissingLabelDialog(targetAttendant, async () => {
-      const formattedLabel = targetAttendant.endsWith(':') ? targetAttendant : `${targetAttendant}:`;
-      try {
-        await navigator.clipboard.writeText(formattedLabel);
-      } catch (e) {
-        console.warn(e);
-      }
-      const addNewBtn = dialog.querySelector(SELECTORS.labelsDialogAddNewBtn) as HTMLElement;
-      if (addNewBtn) {
-        addNewBtn.click();
-      } else {
-        alert(`Cole "${formattedLabel}" na criação da nova etiqueta.`);
-      }
-    });
-  }
-}
-
-// Bootstrap initialization
 initExtensionConfig();
 injectKanban();
 
+// Signature injection on chat input focus
 document.addEventListener('focusin', handleFocusIn, true);
 
-// Global listener to reinject signature after sending message via Enter key
+// Detect Enter key press (without Shift) to flag signature re-injection after send
 document.addEventListener('keydown', (event) => {
   const target = event.target as HTMLElement;
-  if (!target || !isChatInput(target)) {
-    return;
-  }
+  if (!target || !isChatInput(target)) return;
 
-  // If Enter is pressed without Shift (which sends the message)
   if (event.key === 'Enter' && !event.shiftKey) {
     shouldReinjectSignature = true;
   }
 }, true);
 
-// Global listener to reinject signature after sending message via Send Button click
+// Detect Send button click to flag signature re-injection
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
-  const sendBtn = target.closest('button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]');
+  const sendBtn = target.closest(SELECTORS.sendButton);
   if (sendBtn) {
     shouldReinjectSignature = true;
   }
 }, true);
 
-// Fast loop (150ms) to check and reinject signature if input was cleared after sending
+// Polling loop: re-inject signature when input clears after message send
 setInterval(() => {
   if (shouldReinjectSignature) {
-    const input = (document.querySelector(SELECTORS.chatInput) || 
-                   document.querySelector(SELECTORS.chatInputFallback)) as HTMLDivElement;
+    const input = getChatInput();
     if (input && input.textContent?.trim().length === 0) {
-      injectSignatureIntoInput(input);
+      injectSignatureIntoInput(input, cachedAttendantName, cachedAttendants, cachedSettings);
       shouldReinjectSignature = false;
     }
   }
 }, 150);
 
-// Loop for periodic UI rendering checks
+// Periodic UI checks: attendance button, phrasebar, and chatlist badges
 setInterval(() => {
-  checkAndInjectAttendanceButton();
+  checkAndInjectAttendanceButton(
+    cachedAttendantName,
+    cachedAttendants,
+    cachedSettings,
+    activeAttendances,
+    lastAlertedChatRef,
+    updateActiveAttendancesState
+  );
   checkAndInjectPhrasebar();
-  checkAndInjectChatlistBadges();
+  checkAndInjectChatlistBadges(cachedAttendants);
 }, 1000);
 
-// Capture React Custom Event triggers
+// Transfer event listener (bridges React sidebar ↔ content script)
 window.addEventListener('la-home-zap-transfer-chat', (event: any) => {
   const { targetAttendant, reason, chatName } = event.detail;
-  let from = cachedAttendantName;
-  if (cachedSettings.capitalizeInitial) {
-    from = capitalize(from);
-  }
-  const to = cachedSettings.capitalizeInitial ? capitalize(targetAttendant) : targetAttendant;
-  triggerTransferAutomation(from, to, chatName, reason);
+  const from = resolveDisplayName(cachedAttendantName, cachedSettings);
+  const to = resolveDisplayName(targetAttendant, cachedSettings);
+  triggerTransferAutomation(from, to, chatName, reason, activeAttendances, updateActiveAttendancesState);
 });
+
 console.log('[La Home Zap] Content script initialized.');

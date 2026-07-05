@@ -1,32 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Star, Plus, Trash2, Check, Eye } from 'lucide-react';
+import type { Attendant, Settings } from '../types';
+import { DEFAULT_ATTENDANTS, DEFAULT_SETTINGS } from '../constants';
 import './options.css';
-
-interface Attendant {
-  id: string;
-  name: string;
-  isFavorite: boolean;
-}
-
-interface Settings {
-  quickAccess: boolean;
-  transferAlert: boolean;
-  attendanceControl: boolean;
-  capitalizeInitial: boolean;
-  dontRepeatInChat: boolean;
-}
-
-const DEFAULT_ATTENDANTS: Attendant[] = [
-  { id: '1', name: 'Coordenação', isFavorite: true }
-];
-
-const DEFAULT_SETTINGS: Settings = {
-  quickAccess: true,
-  transferAlert: false,
-  attendanceControl: true,
-  capitalizeInitial: true,
-  dontRepeatInChat: false
-};
 
 function App() {
   const [attendants, setAttendants] = useState<Attendant[]>([]);
@@ -44,7 +20,6 @@ function App() {
           setAttendants(result.attendants);
         } else {
           setAttendants(DEFAULT_ATTENDANTS);
-          // Initial save of defaults
           chrome.storage.sync.set({ attendants: DEFAULT_ATTENDANTS });
         }
 
@@ -56,26 +31,17 @@ function App() {
         }
       });
     } else {
-      // Fallback to localStorage in non-extension development environments
       const localAttendants = localStorage.getItem('attendants');
       const localSettings = localStorage.getItem('settings');
 
       if (localAttendants) {
-        try {
-          setAttendants(JSON.parse(localAttendants));
-        } catch {
-          setAttendants(DEFAULT_ATTENDANTS);
-        }
+        try { setAttendants(JSON.parse(localAttendants)); } catch { setAttendants(DEFAULT_ATTENDANTS); }
       } else {
         setAttendants(DEFAULT_ATTENDANTS);
       }
 
       if (localSettings) {
-        try {
-          setSettings(JSON.parse(localSettings));
-        } catch {
-          setSettings(DEFAULT_SETTINGS);
-        }
+        try { setSettings(JSON.parse(localSettings)); } catch { setSettings(DEFAULT_SETTINGS); }
       } else {
         setSettings(DEFAULT_SETTINGS);
       }
@@ -92,25 +58,35 @@ function App() {
   // Helper function to trigger save feedback and update storage
   const persistData = (newAttendants: Attendant[], newSettings: Settings) => {
     setSaveStatus('saving');
-    
+
+    // Sync activeAttendant whenever attendants list changes
+    const favorite = newAttendants.find(a => a.isFavorite);
+    const storageData: Record<string, unknown> = {
+      attendants: newAttendants,
+      settings: newSettings,
+    };
+    if (favorite) {
+      storageData.activeAttendant = favorite.name;
+    }
+
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-      chrome.storage.sync.set({ attendants: newAttendants, settings: newSettings }, () => {
+      chrome.storage.sync.set(storageData, () => {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       });
     } else {
       localStorage.setItem('attendants', JSON.stringify(newAttendants));
       localStorage.setItem('settings', JSON.stringify(newSettings));
+      if (favorite) {
+        localStorage.setItem('activeAttendant', favorite.name);
+      }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     }
   };
 
   const handleCheckboxChange = (key: keyof Settings) => {
-    const updatedSettings = {
-      ...settings,
-      [key]: !settings[key]
-    };
+    const updatedSettings = { ...settings, [key]: !settings[key] };
     setSettings(updatedSettings);
     persistData(attendants, updatedSettings);
   };
@@ -129,7 +105,10 @@ function App() {
     const newAttendant: Attendant = {
       id: Date.now().toString(),
       name: cleanName,
-      isFavorite: attendants.length === 0 // If first, make it favorite
+      isFavorite: attendants.length === 0,
+      // Default formatting flags for options page-created attendants
+      quebraLinha: true,
+      negrito: true,
     };
 
     const updatedList = [...attendants, newAttendant];
@@ -141,7 +120,7 @@ function App() {
 
   const handleDeleteAttendant = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     const target = attendants.find(a => a.id === id);
     if (!target) return;
 
@@ -151,8 +130,7 @@ function App() {
     }
 
     const updatedList = attendants.filter(a => a.id !== id);
-    
-    // If we deleted the favorite one, make the first of the remaining list the favorite
+
     if (target.isFavorite && updatedList.length > 0) {
       updatedList[0].isFavorite = true;
     }
@@ -207,55 +185,35 @@ function App() {
       <section className="settings-section">
         <div className="checkbox-grid">
           <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={settings.quickAccess}
-              onChange={() => handleCheckboxChange('quickAccess')}
-            />
+            <input type="checkbox" checked={settings.quickAccess} onChange={() => handleCheckboxChange('quickAccess')} />
             <div className="checkbox-label-wrapper">
               <span className="checkbox-title">Acesso rápido + atalho.</span>
             </div>
           </label>
 
           <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={settings.capitalizeInitial}
-              onChange={() => handleCheckboxChange('capitalizeInitial')}
-            />
+            <input type="checkbox" checked={settings.capitalizeInitial} onChange={() => handleCheckboxChange('capitalizeInitial')} />
             <div className="checkbox-label-wrapper">
               <span className="checkbox-title">Letra inicial maiúscula.</span>
             </div>
           </label>
 
           <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={settings.transferAlert}
-              onChange={() => handleCheckboxChange('transferAlert')}
-            />
+            <input type="checkbox" checked={settings.transferAlert} onChange={() => handleCheckboxChange('transferAlert')} />
             <div className="checkbox-label-wrapper">
               <span className="checkbox-title">Receber alerta de Transferência.</span>
             </div>
           </label>
 
           <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={settings.dontRepeatInChat}
-              onChange={() => handleCheckboxChange('dontRepeatInChat')}
-            />
+            <input type="checkbox" checked={settings.dontRepeatInChat} onChange={() => handleCheckboxChange('dontRepeatInChat')} />
             <div className="checkbox-label-wrapper">
               <span className="checkbox-title">Não repetir no chat.</span>
             </div>
           </label>
 
           <label className="checkbox-item">
-            <input
-              type="checkbox"
-              checked={settings.attendanceControl}
-              onChange={() => handleCheckboxChange('attendanceControl')}
-            />
+            <input type="checkbox" checked={settings.attendanceControl} onChange={() => handleCheckboxChange('attendanceControl')} />
             <div className="checkbox-label-wrapper">
               <span className="checkbox-title">Controle de Atendimento.</span>
             </div>

@@ -1,17 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Edit2, Check } from 'lucide-react';
-
-export interface QuickReply {
-  id: string;
-  shortcut: string;
-  text: string;
-}
-
-const DEFAULT_REPLIES: QuickReply[] = [
-  { id: '1', shortcut: 'boasvindas', text: 'Olá! Seja bem-vindo à La Home Care. Como posso ajudar você hoje?' },
-  { id: '2', shortcut: 'documentos', text: 'Por favor, envie o documento de identificação (RG) e a carteirinha do convênio Hapvida do paciente para prosseguirmos.' },
-  { id: '3', shortcut: 'finalizar', text: 'Seu atendimento foi concluído. A La Home Care agradece o contato e deseja um excelente dia!' }
-];
+import type { QuickReply } from '../../types';
+import { DEFAULT_QUICK_REPLIES } from '../../constants';
 
 function QuickReplies() {
   const [replies, setReplies] = useState<QuickReply[]>([]);
@@ -21,31 +11,26 @@ function QuickReplies() {
   const [text, setText] = useState('');
 
   // Load from storage on mount
-  useEffect(() => {
+  useState(() => {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.get(['quickReplies'], (result) => {
         if (result.quickReplies && Array.isArray(result.quickReplies)) {
           setReplies(result.quickReplies);
         } else {
-          // Initialize with defaults if empty
-          setReplies(DEFAULT_REPLIES);
-          chrome.storage.sync.set({ quickReplies: DEFAULT_REPLIES });
+          setReplies(DEFAULT_QUICK_REPLIES);
+          chrome.storage.sync.set({ quickReplies: DEFAULT_QUICK_REPLIES });
         }
       });
     } else {
       const local = localStorage.getItem('quickReplies');
       if (local) {
-        try {
-          setReplies(JSON.parse(local));
-        } catch (e) {
-          setReplies(DEFAULT_REPLIES);
-        }
+        try { setReplies(JSON.parse(local)); } catch (e) { setReplies(DEFAULT_QUICK_REPLIES); }
       } else {
-        setReplies(DEFAULT_REPLIES);
-        localStorage.setItem('quickReplies', JSON.stringify(DEFAULT_REPLIES));
+        setReplies(DEFAULT_QUICK_REPLIES);
+        localStorage.setItem('quickReplies', JSON.stringify(DEFAULT_QUICK_REPLIES));
       }
     }
-  }, []);
+  });
 
   const persistReplies = (updated: QuickReply[]) => {
     setReplies(updated);
@@ -68,11 +53,7 @@ function QuickReplies() {
       persistReplies(updated);
       setEditingId(null);
     } else {
-      const newReply: QuickReply = {
-        id: Date.now().toString(),
-        shortcut: cleanShortcut,
-        text: cleanText
-      };
+      const newReply: QuickReply = { id: Date.now().toString(), shortcut: cleanShortcut, text: cleanText };
       persistReplies([newReply, ...replies]);
     }
 
@@ -91,71 +72,31 @@ function QuickReplies() {
   const handleDelete = (id: string) => {
     const updated = replies.filter(r => r.id !== id);
     persistReplies(updated);
-    if (editingId === id) {
-      setEditingId(null);
-      setShortcut('');
-      setText('');
-      setIsAdding(false);
-    }
+    if (editingId === id) { setEditingId(null); setShortcut(''); setText(''); setIsAdding(false); }
   };
 
   return (
     <div className="sidebar-panel-container">
       <div className="sidebar-panel-header">
         <h1>Mensagens Rápidas</h1>
-        <button
-          type="button"
-          className="btn-add-card"
-          onClick={() => {
-            setIsAdding(!isAdding);
-            setEditingId(null);
-            setShortcut('');
-            setText('');
-          }}
-        >
-          <Plus size={14} />
-          {isAdding ? 'Ver Lista' : 'Nova'}
+        <button type="button" className="btn-add-card" onClick={() => { setIsAdding(!isAdding); setEditingId(null); setShortcut(''); setText(''); }}>
+          <Plus size={14} /> {isAdding ? 'Ver Lista' : 'Nova'}
         </button>
       </div>
 
       {isAdding ? (
         <form onSubmit={handleSubmit} className="quick-add-form" style={{ background: 'rgba(15, 23, 42, 0.4)' }}>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px', fontWeight: 600 }}>Atalho rápido (ex: boasvindas)</div>
-          <input
-            type="text"
-            placeholder="boasvindas..."
-            value={shortcut}
-            onChange={(e) => setShortcut(e.target.value)}
-            maxLength={20}
-            required
-            style={{ marginBottom: '8px' }}
-          />
+          <input type="text" placeholder="boasvindas..." value={shortcut} onChange={(e) => setShortcut(e.target.value)} maxLength={20} required style={{ marginBottom: '8px' }} />
 
           <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px', fontWeight: 600 }}>Conteúdo da mensagem</div>
-          <textarea
-            placeholder="Olá! Como posso ajudar você hoje?..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={500}
-            required
-            style={{ height: '110px' }}
-          />
+          <textarea placeholder="Olá! Como posso ajudar você hoje?..." value={text} onChange={(e) => setText(e.target.value)} maxLength={500} required style={{ height: '110px' }} />
 
           <div className="form-actions" style={{ marginTop: '4px' }}>
             <button type="submit" className="btn-form-action btn-form-confirm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-              <Check size={12} />
-              {editingId ? 'Salvar Alteração' : 'Criar Mensagem'}
+              <Check size={12} /> {editingId ? 'Salvar Alteração' : 'Criar Mensagem'}
             </button>
-            <button
-              type="button"
-              className="btn-form-action btn-form-cancel"
-              onClick={() => {
-                setIsAdding(false);
-                setEditingId(null);
-                setShortcut('');
-                setText('');
-              }}
-            >
+            <button type="button" className="btn-form-action btn-form-cancel" onClick={() => { setIsAdding(false); setEditingId(null); setShortcut(''); setText(''); }}>
               Cancelar
             </button>
           </div>
@@ -172,32 +113,14 @@ function QuickReplies() {
             </div>
           ) : (
             replies.map(reply => (
-              <div
-                key={reply.id}
-                className="kanban-card"
-                style={{ cursor: 'default', display: 'flex', flexDirection: 'column', gap: '8px' }}
-              >
+              <div key={reply.id} className="kanban-card" style={{ cursor: 'default', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#06b6d4', background: 'rgba(6, 182, 212, 0.08)', padding: '2px 8px', borderRadius: '6px' }}>
                     /{reply.shortcut}
                   </span>
                   <div style={{ display: 'flex', gap: '2px' }}>
-                    <button
-                      type="button"
-                      className="btn-card-action"
-                      onClick={() => handleEdit(reply)}
-                      title="Editar Mensagem"
-                    >
-                      <Edit2 size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-card-action btn-card-delete"
-                      onClick={() => handleDelete(reply.id)}
-                      title="Excluir Mensagem"
-                    >
-                      <Trash2 size={11} />
-                    </button>
+                    <button type="button" className="btn-card-action" onClick={() => handleEdit(reply)} title="Editar Mensagem"><Edit2 size={11} /></button>
+                    <button type="button" className="btn-card-action btn-card-delete" onClick={() => handleDelete(reply.id)} title="Excluir Mensagem"><Trash2 size={11} /></button>
                   </div>
                 </div>
                 <div style={{ fontSize: '12px', color: '#e2e8f0', lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>

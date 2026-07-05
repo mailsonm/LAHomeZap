@@ -12,3 +12,7 @@ dist/
 # System files
 .DS_Store
 Thumbs.db
+
+# Test/Build artifacts
+coverage/
+*.zip

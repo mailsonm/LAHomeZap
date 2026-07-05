@@ -1,0 +1,78 @@
+/**
+ * La Home Zap — Design Tokens
+ * Centralized CSS custom properties for consistent theming across all components.
+ * Import this file in any CSS that needs to reference the design system.
+ */
+
+:root {
+  /* Background colors */
+  --lhz-bg-primary: #0b0f19;
+  --lhz-bg-secondary: #131a2e;
+  --lhz-bg-tertiary: rgba(15, 23, 42, 0.4);
+  --lhz-bg-card: rgba(15, 23, 42, 0.5);
+  --lhz-bg-hover: rgba(255, 255, 255, 0.05);
+
+  /* Accent / Brand colors */
+  --lhz-accent: #06b6d4;
+  --lhz-accent-dark: #0891b2;
+  --lhz-accent-light: #00ced1;
+  --lhz-accent-bg: rgba(6, 182, 212, 0.1);
+  --lhz-accent-bg-hover: rgba(6, 182, 212, 0.2);
+  --lhz-accent-border: rgba(6, 182, 212, 0.25);
+  --lhz-accent-border-hover: rgba(6, 182, 212, 0.4);
+  --lhz-accent-shadow: rgba(6, 182, 212, 0.2);
+
+  /* Success / Danger / Warning */
+  --lhz-success: #10b981;
+  --lhz-success-bg: rgba(16, 185, 129, 0.2);
+  --lhz-success-hover: #059669;
+  --lhz-danger: #ef4444;
+  --lhz-danger-bg: rgba(239, 68, 68, 0.2);
+  --lhz-danger-hover: #dc2626;
+  --lhz-warning: #eab308;
+
+  /* Text colors */
+  --lhz-text-primary: #f8fafc;
+  --lhz-text-secondary: #e2e8f0;
+  --lhz-text-tertiary: #cbd5e1;
+  --lhz-text-muted: #94a3b8;
+  --lhz-text-dim: #64748b;
+  --lhz-text-faint: #475569;
+  --lhz-text-whatsapp: #8696a0;
+
+  /* Border / Divider */
+  --lhz-border-light: rgba(255, 255, 255, 0.04);
+  --lhz-border-default: rgba(255, 255, 255, 0.06);
+  --lhz-border-medium: rgba(255, 255, 255, 0.08);
+  --lhz-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* Glassmorphism */
+  --lhz-glass-bg: rgba(11, 15, 25, 0.6);
+  --lhz-glass-blur: blur(10px);
+
+  /* Typography */
+  --lhz-font-family: 'Outfit', sans-serif;
+  --lhz-font-size-xs: 10.5px;
+  --lhz-font-size-sm: 11px;
+  --lhz-font-size-base: 12px;
+  --lhz-font-size-md: 13px;
+  --lhz-font-size-lg: 14px;
+  --lhz-font-size-xl: 16px;
+
+  /* Spacing */
+  --lhz-radius-sm: 6px;
+  --lhz-radius-md: 8px;
+  --lhz-radius-lg: 12px;
+  --lhz-radius-xl: 16px;
+  --lhz-radius-pill: 100px;
+
+  /* Shadows */
+  --lhz-shadow-card: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --lhz-shadow-elevated: 0 20px 40px rgba(0, 0, 0, 0.4);
+  --lhz-shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.6);
+
+  /* Transitions */
+  --lhz-transition-fast: all 0.15s ease;
+  --lhz-transition-normal: all 0.2s ease;
+  --lhz-transition-smooth: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}

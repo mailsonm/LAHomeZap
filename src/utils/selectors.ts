@@ -6,10 +6,10 @@
 export const SELECTORS = {
   // Main chat message input element
   chatInput: 'div[contenteditable="true"][data-tab="10"]',
-  
+
   // Alternative fallback chat input if data-tab changes
   chatInputFallback: 'div[contenteditable="true"]',
-  
+
   // Search bar input to differentiate from chat input
   searchInput: 'div[contenteditable="true"][data-tab="3"]',
 
@@ -31,7 +31,10 @@ export const SELECTORS = {
   // WhatsApp Business label tag button inside the chat header or contact action menu
   labelButton: '[data-testid="label-chat-header-button"], button[title="Etiquetas"], button[title="Labels"], [data-testid="menu-icon-labels"], span[data-icon="tag"], span[data-icon="label"]',
 
-  // Nativo labels dialog window container
+  // Label button in header (for reading the active label text)
+  labelHeaderButton: '[data-testid="label-chat-header-button"]',
+
+  // Native labels dialog window container
   labelsDialog: 'div[role="dialog"]',
 
   // Native button to save labels inside dialog
@@ -40,8 +43,23 @@ export const SELECTORS = {
   // Native button to create a new label inside the dialog
   labelsDialogAddNewBtn: 'div[data-testid="add-label"], button[data-testid="add-label"]',
 
+  // Checkbox element inside label dialog items
+  labelDialogCheckbox: 'input[type="checkbox"]',
+
+  // Label dialog list item wrapper
+  labelDialogItem: 'li',
+
+  // Send message button (multiple selectors for resilience)
+  sendButton: 'button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]',
+
+  // Sent messages for duplicate signature detection
+  messageOut: '.message-out',
+
+  // Conversation info header fallback
+  conversationInfoHeader: '[data-testid="conversation-info-header"]',
+
   // Chatlist selectors for sidebar visualization
   chatlistRow: '[data-testid="cell-frame-container"], [data-testid="list-item"]',
   chatlistLabelPill: 'span[data-label-id]',
-  chatlistRowName: '[data-testid="chat-title"], span[dir="auto"]'
+  chatlistRowName: '[data-testid="chat-title"], span[dir="auto"]',
 };

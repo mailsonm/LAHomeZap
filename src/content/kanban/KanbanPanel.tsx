@@ -1,13 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, ArrowLeft, ArrowRight, Trash2, Calendar } from 'lucide-react';
-
-export interface KanbanCard {
-  id: string;
-  title: string;
-  description: string;
-  status: 'new' | 'progress' | 'done';
-  createdAt: string;
-}
+import type { KanbanCard } from '../../types';
 
 function KanbanPanel() {
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -16,7 +9,7 @@ function KanbanPanel() {
   const [newDesc, setNewDesc] = useState('');
 
   // Load cards from storage on mount
-  useEffect(() => {
+  useState(() => {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.get(['kanbanCards'], (result) => {
         if (result.kanbanCards && Array.isArray(result.kanbanCards)) {
@@ -26,16 +19,11 @@ function KanbanPanel() {
     } else {
       const localCards = localStorage.getItem('kanbanCards');
       if (localCards) {
-        try {
-          setCards(JSON.parse(localCards));
-        } catch (e) {
-          console.warn('[La Home Zap] Failed to parse local cards:', e);
-        }
+        try { setCards(JSON.parse(localCards)); } catch (e) { console.warn('[La Home Zap] Failed to parse local cards:', e); }
       }
     }
-  }, []);
+  });
 
-  // Persist cards helper
   const persistCards = (updatedList: KanbanCard[]) => {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
       chrome.storage.sync.set({ kanbanCards: updatedList });
@@ -54,11 +42,7 @@ function KanbanPanel() {
       title,
       description: newDesc.trim(),
       status: 'new',
-      createdAt: new Date().toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit'
-      })
+      createdAt: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
     const updatedList = [newCard, ...cards];
@@ -81,11 +65,8 @@ function KanbanPanel() {
       if (c.id === id) {
         const currentIndex = statusOrder.indexOf(c.status);
         let nextIndex = currentIndex;
-        if (direction === 'left' && currentIndex > 0) {
-          nextIndex = currentIndex - 1;
-        } else if (direction === 'right' && currentIndex < statusOrder.length - 1) {
-          nextIndex = currentIndex + 1;
-        }
+        if (direction === 'left' && currentIndex > 0) nextIndex = currentIndex - 1;
+        else if (direction === 'right' && currentIndex < statusOrder.length - 1) nextIndex = currentIndex + 1;
         return { ...c, status: statusOrder[nextIndex] };
       }
       return c;
@@ -108,41 +89,26 @@ function KanbanPanel() {
       <div key={card.id} className="kanban-card">
         <div className="card-title">{card.title}</div>
         {card.description && <div className="card-desc">{card.description}</div>}
-        
+
         <div className="card-meta">
           <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
             <Calendar size={10} />
             {card.createdAt}
           </div>
-          
+
           <div className="card-actions">
             {card.status !== 'new' && (
-              <button
-                type="button"
-                className="btn-card-action"
-                onClick={() => handleMoveCard(card.id, 'left')}
-                title="Mover para esquerda"
-              >
+              <button type="button" className="btn-card-action" onClick={() => handleMoveCard(card.id, 'left')} title="Mover para esquerda">
                 <ArrowLeft size={11} />
               </button>
             )}
 
-            <button
-              type="button"
-              className="btn-card-action btn-card-delete"
-              onClick={() => handleDeleteCard(card.id)}
-              title="Excluir Demanda"
-            >
+            <button type="button" className="btn-card-action btn-card-delete" onClick={() => handleDeleteCard(card.id)} title="Excluir Demanda">
               <Trash2 size={11} />
             </button>
 
             {card.status !== 'done' && (
-              <button
-                type="button"
-                className="btn-card-action"
-                onClick={() => handleMoveCard(card.id, 'right')}
-                title="Mover para direita"
-              >
+              <button type="button" className="btn-card-action" onClick={() => handleMoveCard(card.id, 'right')} title="Mover para direita">
                 <ArrowRight size={11} />
               </button>
             )}
@@ -162,48 +128,21 @@ function KanbanPanel() {
         <div className="kanban-header">
           <h1>Painel Kanban</h1>
           <button type="button" className="btn-add-card" onClick={() => setIsAdding(!isAdding)}>
-            <Plus size={14} />
-            Nova
+            <Plus size={14} /> Nova
           </button>
         </div>
 
-        {/* Form Quick Add */}
         {isAdding && (
           <form onSubmit={handleAddCard} className="quick-add-form">
-            <input
-              type="text"
-              placeholder="Título da demanda..."
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              maxLength={40}
-              required
-            />
-            <textarea
-              placeholder="Detalhes/Descrição..."
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              maxLength={150}
-            />
+            <input type="text" placeholder="Título da demanda..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} maxLength={40} required />
+            <textarea placeholder="Detalhes/Descrição..." value={newDesc} onChange={(e) => setNewDesc(e.target.value)} maxLength={150} />
             <div className="form-actions">
-              <button type="submit" className="btn-form-action btn-form-confirm">
-                Criar
-              </button>
-              <button
-                type="button"
-                className="btn-form-action btn-form-cancel"
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewTitle('');
-                  setNewDesc('');
-                }}
-              >
-                Cancelar
-              </button>
+              <button type="submit" className="btn-form-action btn-form-confirm">Criar</button>
+              <button type="button" className="btn-form-action btn-form-cancel" onClick={() => { setIsAdding(false); setNewTitle(''); setNewDesc(''); }}>Cancelar</button>
             </div>
           </form>
         )}
 
-        {/* Columns Grid list */}
         <div className="kanban-columns-container">
           <div className="kanban-column">
             <div className="column-header">
