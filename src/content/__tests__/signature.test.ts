@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { formatAttendantSignature, resolveDisplayName, hasRecentSignature, injectSignatureIntoInput, handleBeforeInput } from '../signature';
+import { formatAttendantSignature, resolveDisplayName, hasRecentSignature, injectSignatureIntoInput, handleKeyDown, handlePaste } from '../signature';
 import type { Attendant, Settings } from '../../types';
 
 describe('signature', () => {
@@ -135,7 +135,7 @@ describe('signature', () => {
     });
   });
 
-  describe('handleBeforeInput', () => {
+  describe('handleKeyDown', () => {
     let input: HTMLDivElement;
 
     beforeEach(() => {
@@ -148,88 +148,86 @@ describe('signature', () => {
       vi.clearAllMocks();
     });
 
-    it('should inject signature and typed character if input is empty and inputType starts with insert', () => {
-      const preventDefault = vi.fn();
-      handleBeforeInput(
-        { target: input, inputType: 'insertText', data: 't', preventDefault } as unknown as InputEvent,
+    it('should inject signature if input is empty and key length is 1 without modifiers', () => {
+      handleKeyDown(
+        { target: input, key: 'a' } as unknown as KeyboardEvent,
         'mailson',
         [defaultAttendant],
         defaultSettings
       );
 
-      expect(preventDefault).toHaveBeenCalled();
       expect(document.execCommand).toHaveBeenCalledWith('insertText', false, '*Mailson*');
-      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, 't');
-    });
-
-    it('should inject signature and pasted text if input is empty and inputType is insertFromPaste', () => {
-      const preventDefault = vi.fn();
-      const mockDataTransfer = {
-        getData: vi.fn().mockReturnValue('hello world')
-      };
-      handleBeforeInput(
-        {
-          target: input,
-          inputType: 'insertFromPaste',
-          dataTransfer: mockDataTransfer,
-          preventDefault
-        } as unknown as InputEvent,
-        'mailson',
-        [defaultAttendant],
-        defaultSettings
-      );
-
-      expect(preventDefault).toHaveBeenCalled();
-      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, '*Mailson*');
-      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, 'hello world');
     });
 
     it('should not inject signature if input is not empty', () => {
       input.textContent = 'hello';
-      const preventDefault = vi.fn();
-      handleBeforeInput(
-        { target: input, inputType: 'insertText', data: 't', preventDefault } as unknown as InputEvent,
+      handleKeyDown(
+        { target: input, key: 'a' } as unknown as KeyboardEvent,
         'mailson',
         [defaultAttendant],
         defaultSettings
       );
 
-      expect(preventDefault).not.toHaveBeenCalled();
       expect(document.execCommand).not.toHaveBeenCalled();
     });
 
-    it('should not inject signature if inputType does not start with insert', () => {
-      const preventDefault = vi.fn();
-      handleBeforeInput(
-        { target: input, inputType: 'deleteContentBackward', preventDefault } as unknown as InputEvent,
+    it('should not inject signature if key length is not 1', () => {
+      handleKeyDown(
+        { target: input, key: 'Backspace' } as unknown as KeyboardEvent,
         'mailson',
         [defaultAttendant],
         defaultSettings
       );
 
-      expect(preventDefault).not.toHaveBeenCalled();
       expect(document.execCommand).not.toHaveBeenCalled();
     });
 
-    it('should respect dontRepeatInChat and only inject typed character without signature if signature is recent', () => {
-      const msg = document.createElement('div');
-      msg.className = 'message-out';
-      msg.textContent = 'Atendente: Mailson';
-      document.body.appendChild(msg);
-
-      const settings = { ...defaultSettings, dontRepeatInChat: true };
-      const preventDefault = vi.fn();
-
-      handleBeforeInput(
-        { target: input, inputType: 'insertText', data: 'a', preventDefault } as unknown as InputEvent,
+    it('should not inject signature if modifier key is pressed', () => {
+      handleKeyDown(
+        { target: input, key: 'a', ctrlKey: true } as unknown as KeyboardEvent,
         'mailson',
         [defaultAttendant],
-        settings
+        defaultSettings
       );
 
-      expect(preventDefault).toHaveBeenCalled();
-      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, 'a');
-      expect(document.execCommand).not.toHaveBeenCalledWith('insertText', false, '*Mailson*');
+      expect(document.execCommand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handlePaste', () => {
+    let input: HTMLDivElement;
+
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      input = document.createElement('div');
+      input.setAttribute('contenteditable', 'true');
+      input.setAttribute('data-tab', '10');
+      document.body.appendChild(input);
+      vi.spyOn(document, 'execCommand').mockImplementation(() => true);
+      vi.clearAllMocks();
+    });
+
+    it('should inject signature if input is empty on paste', () => {
+      handlePaste(
+        { target: input } as unknown as ClipboardEvent,
+        'mailson',
+        [defaultAttendant],
+        defaultSettings
+      );
+
+      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, '*Mailson*');
+    });
+
+    it('should not inject signature if input is not empty on paste', () => {
+      input.textContent = 'hello';
+      handlePaste(
+        { target: input } as unknown as ClipboardEvent,
+        'mailson',
+        [defaultAttendant],
+        defaultSettings
+      );
+
+      expect(document.execCommand).not.toHaveBeenCalled();
     });
   });
 });

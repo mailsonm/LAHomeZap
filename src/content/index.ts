@@ -10,7 +10,7 @@ import { hasChromeStorage, onStorageChanged, storageSet } from '../utils/storage
 import type { Attendant, Settings, ActiveAttendances } from '../types';
 import { DEFAULT_SETTINGS, FALLBACK_ATTENDANT_NAME } from '../constants';
 import { injectKanban, checkAndInjectPhrasebar } from './kanban/index';
-import { resolveDisplayName, handleBeforeInput } from './signature';
+import { resolveDisplayName, handleKeyDown, handlePaste } from './signature';
 import { checkAndInjectAttendanceButton } from './attendance';
 import { triggerTransferAutomation } from './transfer';
 import { checkAndInjectChatlistBadges } from './badges';
@@ -82,8 +82,12 @@ function initExtensionConfig() {
 // Signature event handlers
 // ---------------------------------------------------------------------------
 
-function handleBeforeInputEvent(event: InputEvent) {
-  handleBeforeInput(event, cachedAttendantName, cachedAttendants, cachedSettings);
+function handleKeyDownEvent(event: KeyboardEvent) {
+  handleKeyDown(event, cachedAttendantName, cachedAttendants, cachedSettings);
+}
+
+function handlePasteEvent(event: ClipboardEvent) {
+  handlePaste(event, cachedAttendantName, cachedAttendants, cachedSettings);
 }
 
 // ---------------------------------------------------------------------------
@@ -93,8 +97,9 @@ function handleBeforeInputEvent(event: InputEvent) {
 initExtensionConfig();
 injectKanban();
 
-// Signature injection when starting to type
-document.addEventListener('beforeinput', handleBeforeInputEvent as any, true);
+// Signature injection when starting to type/paste
+document.addEventListener('keydown', handleKeyDownEvent, true);
+document.addEventListener('paste', handlePasteEvent, true);
 
 // Periodic UI checks: attendance button, phrasebar, and chatlist badges
 setInterval(() => {

@@ -115,10 +115,10 @@ export function injectSignatureIntoInput(
 }
 
 /**
- * Handles beforeinput event to inject the signature only when the user starts typing.
+ * Handles keydown event to inject the signature only when the user starts typing.
  */
-export function handleBeforeInput(
-  event: InputEvent,
+export function handleKeyDown(
+  event: KeyboardEvent,
   attendantName: string,
   attendants: Attendant[],
   settings: Settings
@@ -127,56 +127,32 @@ export function handleBeforeInput(
   if (!target || !isChatInput(target)) return;
 
   const textContent = target.textContent || '';
-  if (textContent.trim().length === 0 && event.inputType && event.inputType.startsWith('insert')) {
-    event.preventDefault();
+  if (
+    textContent.trim().length === 0 &&
+    event.key &&
+    event.key.length === 1 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey
+  ) {
+    injectSignatureIntoInput(target, attendantName, attendants, settings);
+  }
+}
 
-    let name = attendantName;
-    if (settings.capitalizeInitial) {
-      name = capitalize(name);
-    }
+/**
+ * Handles paste event to inject the signature before pasting into an empty input.
+ */
+export function handlePaste(
+  event: ClipboardEvent,
+  attendantName: string,
+  attendants: Attendant[],
+  settings: Settings
+) {
+  const target = event.target as HTMLElement;
+  if (!target || !isChatInput(target)) return;
 
-    if (settings.dontRepeatInChat && hasRecentSignature(name)) {
-      // If we skip the signature, we should still insert the user's typed/pasted text
-      let typedText = '';
-      if (event.inputType === 'insertText') {
-        typedText = event.data || '';
-      } else if (event.inputType === 'insertFromPaste') {
-        typedText = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-      }
-      if (typedText) {
-        try {
-          insertTextWithNewlines(target, typedText);
-        } catch (error) {
-          console.error('[La Home Zap] Failed to inject text:', error);
-        }
-      }
-      return;
-    }
-
-    // Find active attendant object to retrieve format flags
-    const activeAtt = attendants.find(a => a.name.toLowerCase() === attendantName.toLowerCase()) || {
-      id: 'default',
-      name: attendantName,
-      isFavorite: true,
-      quebraLinha: true,
-      negrito: true
-    };
-
-    const signature = formatAttendantSignature(activeAtt, settings);
-
-    let typedText = '';
-    if (event.inputType === 'insertText') {
-      typedText = event.data || '';
-    } else if (event.inputType === 'insertFromPaste') {
-      typedText = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-    }
-
-    const fullText = signature + typedText;
-
-    try {
-      insertTextWithNewlines(target, fullText);
-    } catch (error) {
-      console.error('[La Home Zap] Failed to inject signature and text:', error);
-    }
+  const textContent = target.textContent || '';
+  if (textContent.trim().length === 0) {
+    injectSignatureIntoInput(target, attendantName, attendants, settings);
   }
 }
