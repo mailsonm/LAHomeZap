@@ -6,13 +6,11 @@
  * the modular subsystems for signature, attendance, transfer, collision, and badges.
  */
 
-import { SELECTORS } from '../utils/selectors';
 import { hasChromeStorage, onStorageChanged, storageSet } from '../utils/storage';
 import type { Attendant, Settings, ActiveAttendances } from '../types';
 import { DEFAULT_SETTINGS, FALLBACK_ATTENDANT_NAME } from '../constants';
 import { injectKanban, checkAndInjectPhrasebar } from './kanban/index';
-import { isChatInput, getChatInput } from './dom-helpers';
-import { resolveDisplayName, injectSignatureIntoInput } from './signature';
+import { resolveDisplayName, handleBeforeInput } from './signature';
 import { checkAndInjectAttendanceButton } from './attendance';
 import { triggerTransferAutomation } from './transfer';
 import { checkAndInjectChatlistBadges } from './badges';
@@ -25,7 +23,6 @@ let cachedAttendantName = FALLBACK_ATTENDANT_NAME;
 let cachedAttendants: Attendant[] = [];
 let cachedSettings: Settings = DEFAULT_SETTINGS;
 let activeAttendances: ActiveAttendances = {};
-let shouldReinjectSignature = false;
 
 // Mutable ref object for passing to functions that need to update lastAlertedChat
 const lastAlertedChatRef = { value: null as string | null };
@@ -85,14 +82,8 @@ function initExtensionConfig() {
 // Signature event handlers
 // ---------------------------------------------------------------------------
 
-function handleFocusIn(event: FocusEvent) {
-  const target = event.target as HTMLElement;
-  if (!target || !isChatInput(target)) return;
-
-  const textContent = target.textContent || '';
-  if (textContent.trim().length > 0) return;
-
-  injectSignatureIntoInput(target, cachedAttendantName, cachedAttendants, cachedSettings);
+function handleBeforeInputEvent(event: InputEvent) {
+  handleBeforeInput(event, cachedAttendantName, cachedAttendants, cachedSettings);
 }
 
 // ---------------------------------------------------------------------------
@@ -102,38 +93,8 @@ function handleFocusIn(event: FocusEvent) {
 initExtensionConfig();
 injectKanban();
 
-// Signature injection on chat input focus
-document.addEventListener('focusin', handleFocusIn, true);
-
-// Detect Enter key press (without Shift) to flag signature re-injection after send
-document.addEventListener('keydown', (event) => {
-  const target = event.target as HTMLElement;
-  if (!target || !isChatInput(target)) return;
-
-  if (event.key === 'Enter' && !event.shiftKey) {
-    shouldReinjectSignature = true;
-  }
-}, true);
-
-// Detect Send button click to flag signature re-injection
-document.addEventListener('click', (event) => {
-  const target = event.target as HTMLElement;
-  const sendBtn = target.closest(SELECTORS.sendButton);
-  if (sendBtn) {
-    shouldReinjectSignature = true;
-  }
-}, true);
-
-// Polling loop: re-inject signature when input clears after message send
-setInterval(() => {
-  if (shouldReinjectSignature) {
-    const input = getChatInput();
-    if (input && input.textContent?.trim().length === 0) {
-      injectSignatureIntoInput(input, cachedAttendantName, cachedAttendants, cachedSettings);
-      shouldReinjectSignature = false;
-    }
-  }
-}, 150);
+// Signature injection when starting to type
+document.addEventListener('beforeinput', handleBeforeInputEvent as any, true);
 
 // Periodic UI checks: attendance button, phrasebar, and chatlist badges
 setInterval(() => {

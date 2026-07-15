@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { formatAttendantSignature, resolveDisplayName, hasRecentSignature, injectSignatureIntoInput } from '../signature';
+import { formatAttendantSignature, resolveDisplayName, hasRecentSignature, injectSignatureIntoInput, handleBeforeInput } from '../signature';
 import type { Attendant, Settings } from '../../types';
 
 describe('signature', () => {
@@ -131,6 +131,54 @@ describe('signature', () => {
 
       const settings = { ...defaultSettings, dontRepeatInChat: true };
       injectSignatureIntoInput(input, 'mailson', [defaultAttendant], settings);
+      expect(document.execCommand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleBeforeInput', () => {
+    let input: HTMLDivElement;
+
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      input = document.createElement('div');
+      input.setAttribute('contenteditable', 'true');
+      input.setAttribute('data-tab', '10');
+      document.body.appendChild(input);
+      vi.spyOn(document, 'execCommand').mockImplementation(() => true);
+      vi.clearAllMocks();
+    });
+
+    it('should inject signature if input is empty and inputType starts with insert', () => {
+      handleBeforeInput(
+        { target: input, inputType: 'insertText' } as unknown as InputEvent,
+        'mailson',
+        [defaultAttendant],
+        defaultSettings
+      );
+
+      expect(document.execCommand).toHaveBeenCalledWith('insertText', false, '*Mailson*');
+    });
+
+    it('should not inject signature if input is not empty', () => {
+      input.textContent = 'hello';
+      handleBeforeInput(
+        { target: input, inputType: 'insertText' } as unknown as InputEvent,
+        'mailson',
+        [defaultAttendant],
+        defaultSettings
+      );
+
+      expect(document.execCommand).not.toHaveBeenCalled();
+    });
+
+    it('should not inject signature if inputType does not start with insert', () => {
+      handleBeforeInput(
+        { target: input, inputType: 'deleteContentBackward' } as unknown as InputEvent,
+        'mailson',
+        [defaultAttendant],
+        defaultSettings
+      );
+
       expect(document.execCommand).not.toHaveBeenCalled();
     });
   });

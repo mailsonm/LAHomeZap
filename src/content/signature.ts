@@ -4,7 +4,7 @@
 
 import { SELECTORS } from '../utils/selectors';
 import type { Attendant, Settings } from '../types';
-import { capitalize, insertTextWithNewlines } from './dom-helpers';
+import { capitalize, insertTextWithNewlines, isChatInput } from './dom-helpers';
 
 /**
  * Scans the active chat DOM for recent sent messages containing the signature.
@@ -111,5 +111,23 @@ export function injectSignatureIntoInput(
     insertTextWithNewlines(target, signature);
   } catch (error) {
     console.error('[La Home Zap] Failed to inject signature:', error);
+  }
+}
+
+/**
+ * Handles beforeinput event to inject the signature only when the user starts typing.
+ */
+export function handleBeforeInput(
+  event: InputEvent,
+  attendantName: string,
+  attendants: Attendant[],
+  settings: Settings
+) {
+  const target = event.target as HTMLElement;
+  if (!target || !isChatInput(target)) return;
+
+  const textContent = target.textContent || '';
+  if (textContent.trim().length === 0 && event.inputType && event.inputType.startsWith('insert')) {
+    injectSignatureIntoInput(target, attendantName, attendants, settings);
   }
 }
