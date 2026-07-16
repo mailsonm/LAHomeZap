@@ -36,7 +36,7 @@ export function getActiveAttendantFromDOM(cachedAttendants: Attendant[]): string
     return btnText.slice(0, -1).trim();
   }
 
-  return btnText;
+  return null;
 }
 
 /**
