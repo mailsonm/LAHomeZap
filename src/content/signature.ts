@@ -41,9 +41,9 @@ export function formatAttendantSignature(attendant: Attendant, settings: Setting
     name = capitalize(name);
   }
 
-  // 1. Moldura (brackets)
+  // 1. Moldura (monospace code frame)
   if (attendant.moldura) {
-    name = `[${name}]`;
+    name = `\`${name}\``;
   }
 
   // 2. Itálico (italic)
