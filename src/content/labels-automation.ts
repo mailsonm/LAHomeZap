@@ -82,7 +82,22 @@ export async function handleMissingLabel(attendantName: string, dialog: HTMLElem
       console.warn('[La Home Zap] Clipboard copy failed:', e);
     }
 
-    const addNewBtn = dialog.querySelector(SELECTORS.labelsDialogAddNewBtn) as HTMLElement;
+    let addNewBtn = dialog.querySelector(SELECTORS.labelsDialogAddNewBtn) as HTMLElement;
+    if (!addNewBtn) {
+      // Resilient fallback: search inside dialog for elements with "+" and related terms
+      const elements = Array.from(dialog.querySelectorAll('div, span, button'));
+      for (const el of elements) {
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (
+          text.includes('+') &&
+          (text.includes('lista') || text.includes('label') || text.includes('etiqueta') || text.includes('new') || text.includes('nova') || text.includes('nueva'))
+        ) {
+          addNewBtn = el.closest('div[role="button"]') || el.closest('button') || el as HTMLElement;
+          break;
+        }
+      }
+    }
+
     if (addNewBtn) {
       addNewBtn.click();
     } else {

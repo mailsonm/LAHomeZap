@@ -35,7 +35,7 @@ export const SELECTORS = {
   labelHeaderButton: '[data-testid="label-chat-header-button"]',
 
   // Native labels dialog window container
-  labelsDialog: 'div[role="dialog"]',
+  labelsDialog: 'div[role="dialog"], div[role="application"], div[data-testid="popover"], div.x1n2onr6, div[class*="popover"]',
 
   // Native button to save labels inside dialog
   labelsDialogSaveBtn: 'button[data-testid="popup-controls-ok"], div[data-testid="popup-controls-ok"], button.x889uue',
