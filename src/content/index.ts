@@ -32,13 +32,15 @@ const lastAlertedChatRef = { value: null as string | null };
 // Cache management
 // ---------------------------------------------------------------------------
 
-function updateAttendantCache(attendantsList: Attendant[]) {
+function updateAttendantCache(attendantsList: Attendant[], activeName?: string) {
   cachedAttendants = attendantsList || [];
-  if (Array.isArray(attendantsList) && attendantsList.length > 0) {
+  if (activeName !== undefined) {
+    cachedAttendantName = activeName;
+  } else if (Array.isArray(attendantsList)) {
     const favorite = attendantsList.find(a => a.isFavorite);
-    cachedAttendantName = favorite ? favorite.name : attendantsList[0].name;
+    cachedAttendantName = favorite ? favorite.name : 'Desativado';
   } else {
-    cachedAttendantName = FALLBACK_ATTENDANT_NAME;
+    cachedAttendantName = 'Desativado';
   }
 }
 
@@ -53,14 +55,24 @@ function updateActiveAttendancesState(updated: ActiveAttendances) {
 
 function initExtensionConfig() {
   if (hasChromeStorage()) {
-    chrome.storage.sync.get(['attendants', 'settings', 'activeAttendances'], (result) => {
-      if (result.attendants) updateAttendantCache(result.attendants);
+    chrome.storage.sync.get(['attendants', 'settings', 'activeAttendances', 'activeAttendant'], (result) => {
+      if (result.attendants || result.activeAttendant !== undefined) {
+        updateAttendantCache(result.attendants, result.activeAttendant);
+      }
       if (result.settings) cachedSettings = { ...DEFAULT_SETTINGS, ...result.settings };
       if (result.activeAttendances) activeAttendances = result.activeAttendances;
     });
 
     onStorageChanged((changes) => {
-      if (changes.attendants) updateAttendantCache(changes.attendants.newValue as Attendant[]);
+      if (changes.activeAttendant) {
+        cachedAttendantName = (changes.activeAttendant.newValue as string) || 'Desativado';
+      }
+      if (changes.attendants) {
+        updateAttendantCache(
+          changes.attendants.newValue as Attendant[],
+          changes.activeAttendant ? (changes.activeAttendant.newValue as string) : undefined
+        );
+      }
       if (changes.settings) cachedSettings = { ...DEFAULT_SETTINGS, ...changes.settings.newValue as Partial<Settings> };
       if (changes.activeAttendances) activeAttendances = (changes.activeAttendances.newValue || {}) as ActiveAttendances;
     });
@@ -68,9 +80,12 @@ function initExtensionConfig() {
     // Fallback to localStorage for development
     try {
       const localAttendants = localStorage.getItem('attendants');
+      const localActive = localStorage.getItem('activeAttendant');
       const localSettings = localStorage.getItem('settings');
       const localAttendances = localStorage.getItem('activeAttendances');
-      if (localAttendants) updateAttendantCache(JSON.parse(localAttendants));
+      if (localAttendants || localActive !== null) {
+        updateAttendantCache(localAttendants ? JSON.parse(localAttendants) : [], localActive ?? undefined);
+      }
       if (localSettings) cachedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(localSettings) };
       if (localAttendances) activeAttendances = JSON.parse(localAttendances) || {};
     } catch (e) {
