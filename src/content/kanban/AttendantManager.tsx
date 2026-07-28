@@ -44,23 +44,19 @@ function AttendantManager() {
 
   const saveToStorage = (updatedAttendants: Attendant[], updatedSettings?: Settings) => {
     const currentSettings = updatedSettings || settings;
+    const favorite = updatedAttendants.find(a => a.isFavorite);
+    const activeName = favorite ? favorite.name : 'Desativado';
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-      const data: any = { attendants: updatedAttendants, settings: currentSettings };
-
-      const favorite = updatedAttendants.find(a => a.isFavorite);
-      if (favorite) {
-        data.activeAttendant = favorite.name;
-      }
-
-      chrome.storage.sync.set(data);
+      chrome.storage.sync.set({
+        attendants: updatedAttendants,
+        settings: currentSettings,
+        activeAttendant: activeName
+      });
     } else {
       localStorage.setItem('attendants', JSON.stringify(updatedAttendants));
       localStorage.setItem('settings', JSON.stringify(currentSettings));
-      const favorite = updatedAttendants.find(a => a.isFavorite);
-      if (favorite) {
-        localStorage.setItem('activeAttendant', favorite.name);
-      }
+      localStorage.setItem('activeAttendant', activeName);
     }
   };
 
@@ -127,13 +123,7 @@ function AttendantManager() {
   };
 
   const handleDelete = (id: string) => {
-    const attToDelete = attendants.find(a => a.id === id);
     const updatedList = attendants.filter(a => a.id !== id);
-
-    if (attToDelete?.isFavorite && updatedList.length > 0) {
-      updatedList[0].isFavorite = true;
-    }
-
     setAttendants(updatedList);
     saveToStorage(updatedList);
     setIsEditing(false);
@@ -141,10 +131,19 @@ function AttendantManager() {
   };
 
   const handleToggleFavorite = (id: string) => {
-    const updatedList = attendants.map(a => ({
-      ...a,
-      isFavorite: a.id === id
-    }));
+    const target = attendants.find(a => a.id === id);
+    let updatedList: Attendant[];
+
+    if (target && target.isFavorite) {
+      // Desativa o atendente ativo (sem assinatura selecionada)
+      updatedList = attendants.map(a => ({ ...a, isFavorite: false }));
+    } else {
+      updatedList = attendants.map(a => ({
+        ...a,
+        isFavorite: a.id === id
+      }));
+    }
+
     setAttendants(updatedList);
     saveToStorage(updatedList);
   };

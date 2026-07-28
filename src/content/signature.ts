@@ -87,6 +87,10 @@ export function injectSignatureIntoInput(
   attendants: Attendant[],
   settings: Settings
 ) {
+  if (!attendantName || attendantName.trim().toLowerCase() === 'desativado' || attendantName.trim() === '') {
+    return;
+  }
+
   let name = attendantName;
   if (settings.capitalizeInitial) {
     name = capitalize(name);
@@ -123,6 +127,10 @@ export function handleKeyDown(
   attendants: Attendant[],
   settings: Settings
 ) {
+  if (!attendantName || attendantName.trim().toLowerCase() === 'desativado' || attendantName.trim() === '') {
+    return;
+  }
+
   const target = event.target as HTMLElement;
   if (!target || !isChatInput(target)) return;
 
@@ -148,6 +156,10 @@ export function handlePaste(
   attendants: Attendant[],
   settings: Settings
 ) {
+  if (!attendantName || attendantName.trim().toLowerCase() === 'desativado' || attendantName.trim() === '') {
+    return;
+  }
+
   const target = event.target as HTMLElement;
   if (!target || !isChatInput(target)) return;
 

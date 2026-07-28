@@ -123,6 +123,11 @@ describe('signature', () => {
       expect(document.execCommand).toHaveBeenCalledWith('insertText', false, '*Mailson*');
     });
 
+    it('should not inject signature when attendant is Desativado', () => {
+      injectSignatureIntoInput(input, 'Desativado', [defaultAttendant], defaultSettings);
+      expect(document.execCommand).not.toHaveBeenCalled();
+    });
+
     it('should respect dontRepeatInChat and skip injection if signature is recent', () => {
       const msg = document.createElement('div');
       msg.className = 'message-out';
