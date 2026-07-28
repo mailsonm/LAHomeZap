@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "La Home Zap (Dev)",
+  "name": "Lar Home Zap (Dev)",
   "version": "1.0.0",
   "description": "Extensão para gestão e repasse de demandas do Hapvida no WhatsApp Web para La Home Care (Modo Dev).",
   "permissions": [
@@ -19,7 +19,7 @@
       "48": "public/icons/icon48.png",
       "128": "public/icons/icon128.png"
     },
-    "default_title": "La Home Zap (Dev)"
+    "default_title": "Lar Home Zap (Dev)"
   },
   "content_scripts": [
     {

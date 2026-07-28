@@ -2,9 +2,9 @@
 
 ## Project
 
-**La Home Zap**
+**Lar Home Zap**
 
-Uma extensão exclusiva do Google Chrome para o WhatsApp Web/Business que permite aos atendentes da La Home Care gerenciar e repassar demandas recebidas do Hapvida de forma rápida, eficiente e centralizada. O projeto é de uso interno e focado em otimizar a comunicação diária sem a necessidade de uma infraestrutura de servidor complexa.
+Uma extensão exclusiva do Google Chrome para o WhatsApp Web/Business que permite aos atendentes da Lar Home Care gerenciar e repassar demandas recebidas do Hapvida de forma rápida, eficiente e centralizada. O projeto é de uso interno e focado em otimizar a comunicação diária sem a necessidade de uma infraestrutura de servidor complexa.
 
 **Core Value:** Agilizar o repasse de demandas do Hapvida para os prestadores/equipe internos diretamente no WhatsApp Web, eliminando tarefas repetitivas e garantindo rastreabilidade do atendimento.
 

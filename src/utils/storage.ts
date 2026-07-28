@@ -1,9 +1,9 @@
 /**
- * Unified storage abstraction for La Home Zap.
+ * Unified storage abstraction for Lar Home Zap.
  * Automatically uses chrome.storage.sync when available, with localStorage fallback.
  */
 
-const LOG_PREFIX = '[La Home Zap]';
+const LOG_PREFIX = '[Lar Home Zap]';
 
 /**
  * Returns true if chrome.storage.sync is available in the current context.
