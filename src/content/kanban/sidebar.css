@@ -8,6 +8,7 @@
   pointer-events: none; /* Allows clicks through the empty area */
   font-family: 'Outfit', sans-serif;
   color: #f8fafc;
+  align-items: center; /* Center the floating dock vertically */
 }
 
 /* React mount points inside shadow root reactivating pointer events */
@@ -17,26 +18,35 @@
   padding: 0;
 }
 
-/* Vertical compact control menu */
+/* Vertical floating dock control menu */
 .la-home-zap-navbar {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 18px 8px;
+  gap: 14px;
+  padding: 16px 8px;
   width: 52px;
   flex-shrink: 0;
-  height: max-content;
-  background: rgba(15, 23, 42, 0.85);
+  height: auto;
+  max-height: 80vh;
+  background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-right: none;
-  border-radius: 16px 0 0 16px;
+  border-radius: 20px 0 0 20px;
   pointer-events: auto; /* Re-enable clicks for interactive parts */
-  box-shadow: -5px 5px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: -8px 8px 30px rgba(0, 0, 0, 0.5);
   align-self: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.la-home-zap-navbar.collapsed {
+  width: 28px;
+  padding: 10px 2px;
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 12px 0 0 12px;
 }
 
 /* Tab triggers */

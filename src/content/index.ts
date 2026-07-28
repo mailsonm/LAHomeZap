@@ -14,6 +14,7 @@ import { resolveDisplayName, handleKeyDown, handlePaste } from './signature';
 import { checkAndInjectAttendanceButton } from './attendance';
 import { triggerTransferAutomation } from './transfer';
 import { checkAndInjectChatlistBadges } from './badges';
+import { isMediaViewerOpen } from './dom-helpers';
 
 // ---------------------------------------------------------------------------
 // Module-level cached state
@@ -101,8 +102,21 @@ injectKanban();
 document.addEventListener('keydown', handleKeyDownEvent, true);
 document.addEventListener('paste', handlePasteEvent, true);
 
-// Periodic UI checks: attendance button, phrasebar, and chatlist badges
+// Periodic UI checks: attendance button, phrasebar, chatlist badges, and lightbox state
 setInterval(() => {
+  const rootElement = document.getElementById('la-home-zap-root');
+  if (rootElement) {
+    if (isMediaViewerOpen()) {
+      rootElement.style.opacity = '0';
+      rootElement.style.pointerEvents = 'none';
+      rootElement.style.zIndex = '-1';
+    } else {
+      rootElement.style.opacity = '1';
+      rootElement.style.pointerEvents = 'auto';
+      rootElement.style.zIndex = '9999';
+    }
+  }
+
   checkAndInjectAttendanceButton(
     cachedAttendantName,
     cachedAttendants,
@@ -113,7 +127,7 @@ setInterval(() => {
   );
   checkAndInjectPhrasebar();
   checkAndInjectChatlistBadges(cachedAttendants);
-}, 1000);
+}, 300);
 
 // Transfer event listener (bridges React sidebar ↔ content script)
 window.addEventListener('la-home-zap-transfer-chat', (event: any) => {

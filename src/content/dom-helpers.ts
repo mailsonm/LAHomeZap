@@ -155,3 +155,22 @@ export function clickSendButton(delayMs = 150) {
     }
   }, delayMs);
 }
+
+/**
+ * Checks if WhatsApp Web's full-screen media viewer lightbox is open.
+ */
+export function isMediaViewerOpen(): boolean {
+  if (document.querySelector('[data-animate-media-viewer="true"], [data-testid="media-viewer"], [data-testid="media-viewer-modal"]')) {
+    return true;
+  }
+
+  const dialog = document.querySelector('div[role="dialog"], div[data-animate-modal-popup="true"]');
+  if (dialog) {
+    const hasMediaControls = dialog.querySelector(
+      'span[data-icon="x-viewer"], span[data-icon="zoom-in"], span[data-icon="rotate"], [data-testid="media-viewer-close-btn"]'
+    );
+    if (hasMediaControls) return true;
+  }
+
+  return false;
+}
