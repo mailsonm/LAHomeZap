@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Paperclip } from 'lucide-react';
 import type { QuickReply } from '../../types';
 import { insertTextWithNewlines, getChatInput } from '../dom-helpers';
+import { dispatchAttachmentToWhatsApp } from './quickReplySender';
 import AttendantSwitcher from './AttendantSwitcher';
 
 function Phrasebar() {
@@ -36,7 +38,7 @@ function Phrasebar() {
     }
   });
 
-  const handleReplyClick = (text: string) => {
+  const handleReplyClick = async (reply: QuickReply) => {
     const inputElement = getChatInput();
 
     if (!inputElement) {
@@ -46,9 +48,16 @@ function Phrasebar() {
 
     try {
       // Use insertTextWithNewlines for full multi-line support
-      insertTextWithNewlines(inputElement, text);
+      if (reply.text) {
+        insertTextWithNewlines(inputElement, reply.text);
+      }
+
+      // If reply has an attached file, dispatch it to WhatsApp chat
+      if (reply.attachment) {
+        await dispatchAttachmentToWhatsApp(reply.id, reply.attachment);
+      }
     } catch (e) {
-      console.error('[La Home Zap] Failed to inject quick reply text:', e);
+      console.error('[La Home Zap] Failed to inject quick reply text/attachment:', e);
     }
   };
 
@@ -70,17 +79,21 @@ function Phrasebar() {
           <button
             key={reply.id}
             type="button"
-            onClick={() => handleReplyClick(reply.text)}
+            onClick={() => handleReplyClick(reply)}
             style={{
               background: 'rgba(6, 182, 212, 0.1)', color: '#00ced1',
               border: '1px solid rgba(6, 182, 212, 0.25)', borderRadius: '100px',
               padding: '4px 10px', fontSize: '11.5px', fontWeight: 500,
-              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease', outline: 'none'
+              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s ease', outline: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: '4px'
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(6, 182, 212, 0.2)'; e.currentTarget.style.borderColor = '#00ced1'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'; e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.25)'; }}
           >
             /{reply.shortcut}
+            {reply.attachment && (
+              <Paperclip size={11} style={{ opacity: 0.85 }} />
+            )}
           </button>
         ))}
         {replies.length === 0 && (

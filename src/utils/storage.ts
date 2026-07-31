@@ -127,3 +127,80 @@ export function onStorageChanged(
   // No-op cleanup for non-extension environments
   return () => {};
 }
+
+/**
+ * Returns true if chrome.storage.local is available in the current context.
+ */
+export function hasChromeLocalStorage(): boolean {
+  return (
+    typeof chrome !== 'undefined' &&
+    !!chrome.storage &&
+    !!chrome.storage.local
+  );
+}
+
+/**
+ * Reads data specifically from local storage (chrome.storage.local or localStorage).
+ * Recommended for large items like attachment dataUrls.
+ */
+export function storageLocalGet<T>(key: string): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    if (hasChromeLocalStorage()) {
+      chrome.storage.local.get([key], (result) => {
+        resolve(result[key] as T | undefined);
+      });
+    } else {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          resolve(JSON.parse(raw) as T);
+        } else {
+          resolve(undefined);
+        }
+      } catch (e) {
+        console.warn(`${LOG_PREFIX} Failed to read "${key}" from localStorage:`, e);
+        resolve(undefined);
+      }
+    }
+  });
+}
+
+/**
+ * Writes data specifically to local storage (chrome.storage.local or localStorage).
+ * Recommended for large items like attachment dataUrls.
+ */
+export function storageLocalSet(key: string, value: unknown): Promise<void> {
+  return new Promise((resolve) => {
+    if (hasChromeLocalStorage()) {
+      chrome.storage.local.set({ [key]: value }, () => resolve());
+    } else {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        resolve();
+      } catch (e) {
+        console.warn(`${LOG_PREFIX} Failed to write "${key}" to localStorage:`, e);
+        resolve();
+      }
+    }
+  });
+}
+
+/**
+ * Removes data specifically from local storage (chrome.storage.local or localStorage).
+ */
+export function storageLocalRemove(key: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (hasChromeLocalStorage()) {
+      chrome.storage.local.remove(key, () => resolve());
+    } else {
+      try {
+        localStorage.removeItem(key);
+        resolve();
+      } catch (e) {
+        console.warn(`${LOG_PREFIX} Failed to remove "${key}" from localStorage:`, e);
+        resolve();
+      }
+    }
+  });
+}
+

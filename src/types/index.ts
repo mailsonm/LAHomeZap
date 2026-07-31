@@ -27,10 +27,19 @@ export interface Settings {
   dontRepeatInChat: boolean;
 }
 
+export interface QuickReplyAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl?: string;
+}
+
 export interface QuickReply {
   id: string;
   shortcut: string;
   text: string;
+  attachment?: QuickReplyAttachment;
 }
 
 export interface KanbanCard {
