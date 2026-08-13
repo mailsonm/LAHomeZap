@@ -46,6 +46,7 @@ function QuickReplies() {
     const sanitizedReplies = updated.map(r => {
       if (r.attachment) {
         const { dataUrl, ...cleanAtt } = r.attachment;
+        void dataUrl; // dataUrl is intentionally stripped before syncing
         return { ...r, attachment: cleanAtt };
       }
       return r;

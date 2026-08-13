@@ -53,13 +53,18 @@ export const SELECTORS = {
   sendButton: 'button span[data-icon="send"], button[data-testid="compose-btn-send"], [data-testid="send"]',
 
   // Sent messages for duplicate signature detection
-  messageOut: '.message-out',
+  messageOut: '.message-out, [data-testid="tail-out"]',
 
   // Conversation info header fallback
   conversationInfoHeader: '[data-testid="conversation-info-header"]',
 
   // Chatlist selectors for sidebar visualization
-  chatlistRow: '[data-testid="cell-frame-container"], [data-testid="list-item"]',
+  chatlistRow: '#pane-side [data-testid="cell-frame-container"], #pane-side [data-testid="list-item"], [data-testid="chat-list"] [data-testid="cell-frame-container"], [data-testid="cell-frame-container"], [data-testid="list-item"]',
   chatlistLabelPill: 'span[data-label-id]',
   chatlistRowName: '[data-testid="chat-title"], span[dir="auto"]',
+
+  // Message bubbles inside the active conversation
+  messageRow: '[data-testid="msg-container"], .message-in, .message-out',
+  messageTimestamp: '[data-pre-plain-text]',
+  messageText: 'span.selectable-text',
 };

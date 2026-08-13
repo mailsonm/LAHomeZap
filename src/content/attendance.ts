@@ -105,8 +105,6 @@ let cachedButtonState: { chatName: string | null; isBeingAttended: boolean; atte
   attendantName: '',
 };
 
-let lastButtonCheckLogTime = 0;
-
 /**
  * Appends the Attendance Control button inside the conversation panel.
  * Only re-renders the button when the state actually changes.
@@ -119,9 +117,6 @@ export function checkAndInjectAttendanceButton(
   lastAlertedChatRef: { value: string | null },
   updateActiveAttendances: (updated: ActiveAttendances) => void
 ) {
-  const now = Date.now();
-  const shouldLogDebug = now - lastButtonCheckLogTime > 5000;
-
   const conversationPanel = document.querySelector(SELECTORS.conversationPanel) as HTMLElement;
   const chatName = getActiveChatName();
 
@@ -139,18 +134,6 @@ export function checkAndInjectAttendanceButton(
     }
   }
 
-  if (shouldLogDebug) {
-    console.log('[La Home Zap] Attendance button diagnostic:', {
-      attendanceControlEnabled: cachedSettings.attendanceControl,
-      conversationPanelFound: !!conversationPanel,
-      chatName: chatName,
-      activeAttendantFromDOM: attendantFromDOM,
-      activeAttendances: activeAttendances
-    });
-    lastButtonCheckLogTime = now;
-  }
-
-  // If control feature is globally disabled, remove any leftover buttons and exit
   if (!cachedSettings.attendanceControl) {
     const existing = document.getElementById('la-home-zap-attendance-btn');
     if (existing) {

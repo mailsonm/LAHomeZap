@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Columns3, Zap, ArrowRightLeft, ChevronRight, ChevronLeft, UserCircle } from 'lucide-react';
+import { Columns3, Zap, ArrowRightLeft, ChevronRight, ChevronLeft, UserCircle, Download } from 'lucide-react';
 import KanbanPanel from './KanbanPanel';
 import QuickReplies from './QuickReplies';
 import TransferTab from './TransferTab';
 import AttendantManager from './AttendantManager';
+import ExportTab from './ExportTab';
 import { SELECTORS } from '../../utils/selectors';
 
-type TabType = 'attendants' | 'kanban' | 'replies' | 'transfer' | null;
+type TabType = 'attendants' | 'kanban' | 'replies' | 'transfer' | 'export' | null;
 
 function SidebarTabs() {
   const [activeTab, setActiveTab] = useState<TabType>(null);
@@ -70,6 +71,7 @@ function SidebarTabs() {
         {activeTab === 'kanban' && <KanbanPanel />}
         {activeTab === 'replies' && <QuickReplies />}
         {activeTab === 'transfer' && <TransferTab />}
+        {activeTab === 'export' && <ExportTab />}
       </div>
 
       {/* Control vertical navigation bar / dock */}
@@ -121,6 +123,15 @@ function SidebarTabs() {
               data-tooltip="Transferir Conversa"
             >
               <ArrowRightLeft size={20} />
+            </button>
+
+            <button
+              type="button"
+              className={`la-home-zap-nav-btn ${activeTab === 'export' ? 'active' : ''}`}
+              onClick={() => handleTabClick('export')}
+              data-tooltip="Exportar Conversas"
+            >
+              <Download size={20} />
             </button>
 
             {activeTab !== null && (

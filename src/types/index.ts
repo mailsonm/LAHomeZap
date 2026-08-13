@@ -52,3 +52,39 @@ export interface KanbanCard {
 
 /** Maps chat names to attendant names for in-progress attendances. */
 export type ActiveAttendances = Record<string, string>;
+
+/** Kind of media attached to a message, used to render placeholders in exports. */
+export type MediaKind =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'contact'
+  | 'location'
+  | 'sticker'
+  | 'system';
+
+/** A single message extracted from the WhatsApp Web DOM for export. */
+export interface ExportedMessage {
+  id: string;
+  body: string;
+  sender: string;
+  timestampMs: number;
+  isOut: boolean;
+  media: MediaKind | null;
+}
+
+/** Scheduling configuration for the automatic daily export. */
+export interface ExportConfig {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+}
+
+/** A generated printable HTML report for a single conversation. */
+export interface ExportResultFile {
+  chatName: string;
+  filename: string;
+  html: string;
+  messageCount: number;
+}

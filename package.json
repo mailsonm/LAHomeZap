@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build:content": "BUILD_TARGET=content vite build",
+    "build:background": "BUILD_TARGET=background vite build",
     "build:options": "vite build",
-    "build": "tsc && npm run build:content && npm run build:options",
+    "build": "tsc && npm run build:content && npm run build:background && npm run build:options",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",

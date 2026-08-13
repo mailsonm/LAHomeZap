@@ -8,13 +8,15 @@
 
 import { hasChromeStorage, onStorageChanged, storageSet } from '../utils/storage';
 import type { Attendant, Settings, ActiveAttendances } from '../types';
-import { DEFAULT_SETTINGS, FALLBACK_ATTENDANT_NAME } from '../constants';
+import { DEFAULT_SETTINGS, FALLBACK_ATTENDANT_NAME, EXPORT_MESSAGE_TYPE } from '../constants';
 import { injectKanban, checkAndInjectPhrasebar } from './kanban/index';
 import { resolveDisplayName, handleKeyDown, handlePaste } from './signature';
 import { checkAndInjectAttendanceButton } from './attendance';
 import { triggerTransferAutomation } from './transfer';
 import { checkAndInjectChatlistBadges } from './badges';
 import { isMediaViewerOpen } from './dom-helpers';
+import { runDailyExport } from './export/pipeline';
+import { downloadHtml } from './export/download';
 
 // ---------------------------------------------------------------------------
 // Module-level cached state
@@ -151,5 +153,31 @@ window.addEventListener('la-home-zap-transfer-chat', (event: any) => {
   const to = resolveDisplayName(targetAttendant, cachedSettings);
   triggerTransferAutomation(from, to, chatName, reason, activeAttendances, updateActiveAttendancesState);
 });
+
+// Daily export automation: triggered by the background service worker alarm.
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== EXPORT_MESSAGE_TYPE) return undefined;
+
+    runDailyExport()
+      .then(async (outcome) => {
+        for (const file of outcome.files) {
+          await downloadHtml(file.html, file.filename);
+        }
+        sendResponse({
+          ok: true,
+          exported: outcome.files.length,
+          skipped: outcome.skipped.length,
+          errors: outcome.errors.length,
+        });
+      })
+      .catch((error) => {
+        console.error('[La Home Zap] Daily export failed:', error);
+        sendResponse({ ok: false });
+      });
+
+    return true; // Keep the message channel open for the async response
+  });
+}
 
 console.log('[La Home Zap] Content script initialized.');

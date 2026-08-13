@@ -1,4 +1,4 @@
-import type { Settings, QuickReply, Attendant } from '../types';
+import type { Settings, QuickReply, Attendant, ExportConfig } from '../types';
 
 /**
  * Default settings applied when none are found in storage.
@@ -48,4 +48,48 @@ export const STORAGE_KEYS = {
   activeAttendances: 'activeAttendances',
   kanbanCards: 'kanbanCards',
   quickReplies: 'quickReplies',
+  exportConfig: 'exportConfig',
 } as const;
+
+/**
+ * Default export configuration (automation disabled, 20:00 every day).
+ */
+export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
+  enabled: false,
+  hour: 20,
+  minute: 0,
+};
+
+/**
+ * WhatsApp conversations with activity within this window are eligible for export.
+ */
+export const EXPORT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Name of the chrome.alarms scheduled for the automatic daily export.
+ */
+export const EXPORT_ALARM_NAME = 'la-home-zap-daily-export';
+
+/**
+ * Runtime message sent from the background service worker to the content script
+ * telling it to run the daily export pipeline.
+ */
+export const EXPORT_MESSAGE_TYPE = 'la-home-zap-run-daily-export';
+
+/**
+ * Runtime message sent by the content script to the background service worker
+ * asking it to resync the daily export alarm from the current config.
+ */
+export const EXPORT_SYNC_MESSAGE_TYPE = 'la-home-zap-sync-export-config';
+
+/**
+ * Runtime message sent by the content script to the background service worker
+ * requesting a file download using chrome.downloads.
+ */
+export const EXPORT_DOWNLOAD_MESSAGE_TYPE = 'la-home-zap-download-export-file';
+
+/**
+ * Subdirectory (inside the browser Downloads folder) used for exported reports.
+ */
+export const EXPORT_DOWNLOAD_SUBDIR = 'LaHomeZap';
+

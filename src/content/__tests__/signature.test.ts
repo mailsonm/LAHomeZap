@@ -37,7 +37,7 @@ describe('signature', () => {
     it('should format with moldura', () => {
       const att = { ...defaultAttendant, moldura: true };
       const result = formatAttendantSignature(att, defaultSettings);
-      expect(result).toBe('*\`Mailson\`*\n');
+      expect(result).toBe('*`Mailson`*\n');
     });
 
     it('should format with italico', () => {

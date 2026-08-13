@@ -97,35 +97,40 @@ export function getActiveChatName(): string | null {
     return null;
   }
 
-  // 1. Look for span with dir="auto" that has a title
+  // 1. Look for span with dir="auto" with non-empty text content (contact name)
+  const spans = Array.from(headerElement.querySelectorAll('span[dir="auto"]')) as HTMLElement[];
+  for (const span of spans) {
+    const text = (span.textContent || '').trim();
+    if (
+      text &&
+      !text.includes('visto por último') &&
+      !text.toLowerCase().includes('online') &&
+      !text.toLowerCase().includes('digitando') &&
+      !text.toLowerCase().includes('typing')
+    ) {
+      return text;
+    }
+  }
+
+  // 2. Look for span with dir="auto" that has a title attribute
   const titleElement = headerElement.querySelector('span[dir="auto"][title]') as HTMLElement;
   if (titleElement && titleElement.title) {
     return titleElement.title.trim();
   }
 
-  // 2. Look inside the conversation-info-header container (using innerText line breaks)
+  // 3. Look inside the conversation-info-header container (using innerText line breaks)
   const infoHeader = headerElement.querySelector(SELECTORS.conversationInfoHeader) as HTMLElement;
   if (infoHeader) {
     const text = (infoHeader.innerText || '').trim();
     if (text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
       if (lines.length > 0) {
         return lines[0];
       }
     }
   }
 
-  // 3. Fallback to the first span with dir="auto" that has text inside the header
-  const spans = Array.from(headerElement.querySelectorAll('span[dir="auto"]')) as HTMLElement[];
-  for (const span of spans) {
-    const text = (span.textContent || '').trim();
-    // Avoid picking up status text like "online" or "last seen"
-    if (text && !text.includes('visto por último') && !text.toLowerCase().includes('online') && !text.toLowerCase().includes('digitando')) {
-      return text;
-    }
-  }
-
-  // 4. Generic fallback for any span with a title
+  // 4. Generic fallback for any element with a title attribute
   const anyTitleEl = headerElement.querySelector('[title]') as HTMLElement;
   if (anyTitleEl && anyTitleEl.getAttribute('title')) {
     return anyTitleEl.getAttribute('title')!.trim();

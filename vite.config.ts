@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig(() => {
   const isContent = process.env.BUILD_TARGET === 'content';
+  const isBackground = process.env.BUILD_TARGET === 'background';
 
   if (isContent) {
     return {
@@ -14,6 +15,26 @@ export default defineConfig(() => {
         rollupOptions: {
           input: {
             content: resolve(__dirname, 'src/content/index.ts'),
+          },
+          output: {
+            entryFileNames: '[name].js',
+            inlineDynamicImports: true,
+            format: 'iife',
+          },
+        },
+      },
+    };
+  }
+
+  if (isBackground) {
+    return {
+      plugins: [react()],
+      build: {
+        outDir: 'dist',
+        emptyOutDir: false,
+        rollupOptions: {
+          input: {
+            background: resolve(__dirname, 'src/background.ts'),
           },
           output: {
             entryFileNames: '[name].js',

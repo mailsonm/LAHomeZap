@@ -12,6 +12,7 @@ O desenvolvimento do La Home Zap seguirá uma abordagem de MVP Vertical para ent
 - [ ] **Phase 4: Quick Forward Modal** - Modal de repasse rápido com lista de favoritos.
 - [ ] **Phase 5: Quick Mention Menu (@@)** - Popover de menções rápidas acionado por "@@".
 - [ ] **Phase 6: Pruning & Final Adjustments** - Pruning automático de demandas concluídas e polimento geral.
+- [x] **Phase 7: Daily Conversation Export** - Exportação das conversas com atividade nas últimas 24h em HTML imprimível, com automação diária configurável.
 
 ## Phase Details
 
@@ -101,6 +102,23 @@ Plans:
 - [ ] 06-01: Desenvolvimento da lógica de pruning de demandas arquivadas e monitoramento de cota do Chrome storage.
 - [ ] 06-02: Validação de usabilidade, correções estéticas gerais e preparação do guia de deploy privado.
 
+### Phase 7: Daily Conversation Export
+**Goal**: Permitir a exportação das conversas do WhatsApp Web com atividade nas últimas 24h em HTML imprimível, acionada manualmente pela sidebar ou automaticamente a cada 24h.
+**Mode**: mvp
+**Depends on**: Phase 3
+**Requirements**: EXPO-01
+**Success Criteria** (what must be TRUE):
+  1. Conversas com atividade nas últimas 24h são identificadas pela lista e exportadas em um HTML imprimível por conversa (texto + data/hora + remetente + marcadores de mídia).
+  2. Nova aba "Exportar" no dock lateral permite exportar manualmente e configurar a automação diária (horário).
+  3. Automação diária via service worker (`chrome.alarms` + `chrome.downloads`) executa enquanto o WhatsApp Web estiver aberto.
+**Plans**: 4 plans
+
+Plans:
+- [x] 07-01: Núcleo de extração de mensagens do DOM (`data-pre-plain-text`), janela de 24h e loader de scroll.
+- [x] 07-02: Identificação de chats ativos pela chatlist e pipeline de exportação orquestrado.
+- [x] 07-03: Aba "Exportar" na sidebar com download via `chrome.downloads` e geração do relatório HTML.
+- [x] 07-04: Service worker de automação diária (`chrome.alarms`) + permissões e build do background.
+
 ## Progress
 
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
@@ -113,3 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Quick Forward Modal | 0/2 | Not started | - |
 | 5. Quick Mention Menu (@@) | 0/2 | Not started | - |
 | 6. Pruning & Final Adjustments | 0/2 | Not started | - |
+| 7. Daily Conversation Export | 4/4 | Completed | 2026-08-11 |
