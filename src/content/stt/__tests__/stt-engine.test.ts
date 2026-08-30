@@ -3,6 +3,7 @@ import {
   generateAudioKey,
   getCachedTranscription,
   saveCachedTranscription,
+  deleteCachedTranscription,
   transcribeAudioSource,
 } from '../stt-engine';
 
@@ -22,6 +23,12 @@ describe('STT Engine & Cache', () => {
           }),
           set: vi.fn((items: Record<string, any>, callback?: () => void) => {
             Object.assign(storageMock, items);
+            if (callback) callback();
+          }),
+          remove: vi.fn((keys: string[], callback?: () => void) => {
+            for (const k of keys) {
+              delete storageMock[k];
+            }
             if (callback) callback();
           }),
         },
@@ -93,5 +100,14 @@ describe('STT Engine & Cache', () => {
     // Verify it was saved to cache
     const key = generateAudioKey('blob:https://web.whatsapp.com/new-audio-sample');
     expect(await getCachedTranscription(key)).toBe('Mensagem de teste transcrita com sucesso.');
+  });
+
+  it('deletes cached transcription and supports force bypass', async () => {
+    const key = 'stt_to_delete';
+    await saveCachedTranscription(key, 'Texto salvo');
+    expect(await getCachedTranscription(key)).toBe('Texto salvo');
+
+    await deleteCachedTranscription(key);
+    expect(await getCachedTranscription(key)).toBeNull();
   });
 });

@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Lar Home Zap",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Extensão para gestão e repasse de demandas do Hapvida no WhatsApp Web para Lar Home Care.",
   "permissions": [
     "storage",
     "downloads",
     "alarms"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://huggingface.co/*",
+    "https://*.hf.co/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -27,6 +33,16 @@
     "default_title": "Lar Home Zap"
   },
   "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "interceptor.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
     {
       "matches": [
         "https://web.whatsapp.com/*"

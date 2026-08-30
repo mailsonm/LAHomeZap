@@ -67,6 +67,30 @@ Fase 1 (Implementação básica do Kanban e Storage Provider).
 
 ---
 
+### Pitfall 4: Execução de IA Neural/WASM Multi-thread (Whisper/ONNX) em Content Scripts do WhatsApp Web
+
+**What goes wrong:**
+Tentativa de executar pipelines neurais pesados (`@xenova/transformers`, `onnxruntime-web`) diretamente no Content Script do WhatsApp Web trava em loop de dependências (`still waiting on run dependencies: wasm-instantiate`), sofre com bloqueios de CSP (Content Security Policy) da Meta, falta de cabeçalhos COOP/COEP para `SharedArrayBuffer`, e gera alto consumo de memória/crash da aba.
+
+**Why it happens:**
+1. O WhatsApp Web não envia cabeçalhos `Cross-Origin-Opener-Policy: same-origin` e `Cross-Origin-Embedder-Policy: require-corp`. Sem eles, o navegador desabilita `SharedArrayBuffer`, quebrando o multi-threading padrão do ONNX Runtime Web.
+2. Content scripts rodam no contexto da aba do WhatsApp, onde o ciclo de vida do áudio é gerenciado em memória pelo player interno (muitas vezes sem `<audio>` no DOM ou com descarte imediato de blobs).
+3. O download de arquivos `.onnx` (~40MB a 150MB) pode ser bloqueado pela política de rede ou demorar em conexões corporativas lentas.
+
+**How to avoid:**
+1. **Forçar Modo Single-Thread:** Configurar explicitamente `env.backends.onnx.wasm.numThreads = 1` e `env.backends.onnx.wasm.proxy = false` para desabilitar Web Workers com `SharedArrayBuffer`.
+2. **Media Interception:** Interceptar `URL.createObjectURL` e `window.Audio` para capturar os buffers e URLs `blob:` no exato momento da instanciação pelo WhatsApp.
+3. **Fallback Robusto e Resiliente:** Sempre manter como fallback a Web Speech API (`webkitSpeechRecognition`) ou Offscreen Documents caso o WASM local falhe por restrição de memória.
+4. **Sanitização de Cache:** Nunca salvar mensagens de falha ou "Nenhuma fala detectada" no cache para permitir novas tentativas limpas.
+
+**Warning signs:**
+Loops de `postMessage` no console com `v9MfIESiyIM.js: dependency: wasm-instantiate` ou falha de alocação de memória WASM.
+
+**Phase to address:**
+Fase 4 (Módulo STT e Transcrição de Áudio).
+
+---
+
 ## Technical Debt Patterns
 
 Shortcuts that seem reasonable but create long-term problems.

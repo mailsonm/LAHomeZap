@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig(() => {
   const isContent = process.env.BUILD_TARGET === 'content';
+  const isInterceptor = process.env.BUILD_TARGET === 'interceptor';
   const isBackground = process.env.BUILD_TARGET === 'background';
 
   if (isContent) {
@@ -15,6 +16,26 @@ export default defineConfig(() => {
         rollupOptions: {
           input: {
             content: resolve(__dirname, 'src/content/index.ts'),
+          },
+          output: {
+            entryFileNames: '[name].js',
+            inlineDynamicImports: true,
+            format: 'iife',
+          },
+        },
+      },
+    };
+  }
+
+  if (isInterceptor) {
+    return {
+      plugins: [react()],
+      build: {
+        outDir: 'dist',
+        emptyOutDir: false,
+        rollupOptions: {
+          input: {
+            interceptor: resolve(__dirname, 'src/content/interceptor.ts'),
           },
           output: {
             entryFileNames: '[name].js',

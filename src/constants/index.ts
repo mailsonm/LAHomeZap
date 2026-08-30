@@ -93,3 +93,9 @@ export const EXPORT_DOWNLOAD_MESSAGE_TYPE = 'la-home-zap-download-export-file';
  */
 export const EXPORT_DOWNLOAD_SUBDIR = 'LaHomeZap';
 
+/**
+ * Runtime message sent by the content script to the background service worker
+ * to transcribe an audio PCM Float32 buffer directly using Whisper Web (Transformers.js).
+ */
+export const WHISPER_TRANSCRIBE_MESSAGE_TYPE = 'la-home-zap-whisper-transcribe';
+
