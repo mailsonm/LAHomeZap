@@ -27,6 +27,7 @@ export function injectKanban() {
   rootElement.style.display = 'flex';
   rootElement.style.flexShrink = '0';
   rootElement.style.overflow = 'hidden';
+  rootElement.style.pointerEvents = 'none';
 
   // Append directly to body to avoid flex container overflow clipping
   document.body.appendChild(rootElement);
@@ -42,6 +43,7 @@ export function injectKanban() {
   // Create mount point for React
   const mountPoint = document.createElement('div');
   mountPoint.style.height = '100%';
+  mountPoint.style.pointerEvents = 'none';
   shadowRoot.appendChild(mountPoint);
 
   // Mount React App

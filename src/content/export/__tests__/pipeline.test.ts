@@ -50,7 +50,7 @@ describe('runDailyExport', () => {
     expect(outcome.files).toHaveLength(1);
     expect(outcome.files[0].chatName).toBe('Maria');
     expect(outcome.files[0].messageCount).toBe(2);
-    expect(outcome.files[0].filename).toBe('conversa_Maria_05-08-2026.html');
+    expect(outcome.files[0].filename).toBe('conversa_Maria.html');
     expect(outcome.files[0].html).toContain('Maria');
     expect(outcome.files[0].html).toContain('Olá, tudo bem?');
     expect(outcome.files[0].html).not.toContain('Mensagem antiga');
@@ -94,5 +94,23 @@ describe('runDailyExport', () => {
 
     expect(outcome.files).toHaveLength(0);
     expect(outcome.errors).toEqual(['Maria']);
+  });
+
+  describe('mergeExportedMessages', () => {
+    it('merges historical and new messages without duplication', async () => {
+      const { mergeExportedMessages } = await import('../pipeline');
+      const existing = [
+        { id: '1', body: 'Msg 1', sender: 'Maria', timestampMs: 1000, isOut: false, media: null },
+        { id: '2', body: 'Msg 2', sender: 'Você', timestampMs: 2000, isOut: true, media: null },
+      ];
+      const incoming = [
+        { id: '2', body: 'Msg 2', sender: 'Você', timestampMs: 2000, isOut: true, media: null },
+        { id: '3', body: 'Msg 3', sender: 'Maria', timestampMs: 3000, isOut: false, media: null },
+      ];
+
+      const merged = mergeExportedMessages(existing, incoming);
+      expect(merged).toHaveLength(3);
+      expect(merged.map((m) => m.id)).toEqual(['1', '2', '3']);
+    });
   });
 });

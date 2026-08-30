@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { MediaKind } from '../../../types';
+import type { MediaKind, ExportedMessage } from '../../../types';
 import {
   buildHtmlReport,
   escapeHtml,
@@ -7,20 +7,18 @@ import {
   groupMessagesByDay,
 } from '../html-report';
 
-const message = (overrides: Partial<{
-  id: string;
-  body: string;
-  sender: string;
-  timestampMs: number;
-  isOut: boolean;
-  media: 'image' | null;
-}> = {}) => ({
+const message = (overrides: Partial<ExportedMessage> = {}): ExportedMessage => ({
   id: overrides.id ?? 'm1',
   body: overrides.body ?? 'Olá',
   sender: overrides.sender ?? 'Maria',
   timestampMs: overrides.timestampMs ?? new Date(2026, 7, 5, 14, 30, 0).getTime(),
   isOut: overrides.isOut ?? false,
   media: overrides.media ?? null,
+  mediaSrc: overrides.mediaSrc,
+  documentName: overrides.documentName,
+  documentSize: overrides.documentSize,
+  transcription: overrides.transcription,
+  ...overrides,
 });
 
 describe('html-report', () => {
@@ -82,10 +80,94 @@ describe('html-report', () => {
       expect(html).toContain('message-in');
     });
 
-    it('renders media messages with a placeholder marker', () => {
-      const html = buildHtmlReport('Maria', [message({ media: 'image' })], meta);
+    it('renders media messages with a placeholder marker and image tag when mediaSrc is present', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [message({ media: 'image', mediaSrc: 'data:image/jpeg;base64,abc123xyz' })],
+        meta
+      );
       expect(html).toContain('media-marker');
       expect(html).toContain('Imagem');
+      expect(html).toContain('<img src="data:image/jpeg;base64,abc123xyz" class="message-image" alt="Imagem" />');
+    });
+
+    it('renders audio messages with native HTML5 audio player when mediaSrc is present', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [message({ media: 'audio', mediaSrc: 'data:audio/ogg;base64,audio123' })],
+        meta
+      );
+      expect(html).toContain('<audio controls preload="metadata" class="message-audio" src="data:audio/ogg;base64,audio123"></audio>');
+    });
+
+    it('renders audio placeholder badge with duration when mediaSrc is not present', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [message({ media: 'audio', body: '0:14' })],
+        meta
+      );
+      expect(html).toContain('message-audio-placeholder');
+      expect(html).toContain('🎤 Áudio');
+      expect(html).toContain('(0:14)');
+    });
+
+    it('renders video messages with native HTML5 video player when mediaSrc is present', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [message({ media: 'video', mediaSrc: 'data:video/mp4;base64,video123' })],
+        meta
+      );
+      expect(html).toContain('media-marker');
+      expect(html).toContain('Vídeo');
+      expect(html).toContain('<video controls preload="metadata" class="message-video" src="data:video/mp4;base64,video123"></video>');
+    });
+
+    it('renders document messages with file name, size and offline download button', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [
+          message({
+            media: 'document',
+            documentName: 'relatorio_paciente.pdf',
+            documentSize: '1.4 MB',
+            mediaSrc: 'data:application/pdf;base64,JVBERi0xLjQK...',
+          }),
+        ],
+        meta
+      );
+      expect(html).toContain('Documento');
+      expect(html).toContain('relatorio_paciente.pdf');
+      expect(html).toContain('(1.4 MB)');
+      expect(html).toContain('download="relatorio_paciente.pdf"');
+      expect(html).toContain('href="data:application/pdf;base64,JVBERi0xLjQK..."');
+    });
+
+    it('renders audio messages with transcription when available', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [
+          message({
+            media: 'audio',
+            mediaSrc: 'data:audio/ogg;base64,audio123',
+            transcription: 'Por favor, enviar os documentos até as 17h.',
+          }),
+        ],
+        meta
+      );
+      expect(html).toContain('message-transcription');
+      expect(html).toContain('Transcrição:');
+      expect(html).toContain('Por favor, enviar os documentos até as 17h.');
+    });
+
+    it('renders outgoing messages with message-out and custom attendant sender', () => {
+      const html = buildHtmlReport(
+        'Maria',
+        [message({ isOut: true, sender: 'Intimacop', body: 'Mensagem enviada' })],
+        meta
+      );
+      expect(html).toContain('message-out');
+      expect(html).toContain('Intimacop');
+      expect(html).toContain('Mensagem enviada');
     });
 
     it('does not leak unescaped message content', () => {

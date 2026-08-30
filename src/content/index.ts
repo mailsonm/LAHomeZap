@@ -17,6 +17,7 @@ import { checkAndInjectChatlistBadges } from './badges';
 import { isMediaViewerOpen } from './dom-helpers';
 import { runDailyExport } from './export/pipeline';
 import { downloadHtml } from './export/download';
+import { initSTTObserver } from './stt/stt-injector';
 
 // ---------------------------------------------------------------------------
 // Module-level cached state
@@ -114,6 +115,7 @@ function handlePasteEvent(event: ClipboardEvent) {
 
 initExtensionConfig();
 injectKanban();
+initSTTObserver();
 
 // Signature injection when starting to type/paste
 document.addEventListener('keydown', handleKeyDownEvent, true);
@@ -129,7 +131,7 @@ setInterval(() => {
       rootElement.style.zIndex = '-1';
     } else {
       rootElement.style.opacity = '1';
-      rootElement.style.pointerEvents = 'auto';
+      rootElement.style.pointerEvents = 'none';
       rootElement.style.zIndex = '9999';
     }
   }

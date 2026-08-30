@@ -60,10 +60,37 @@ export interface ReportMeta {
 function renderMessageRow(message: ExportedMessage): string {
   const time = formatTime(new Date(message.timestampMs));
   const sender = escapeHtml(message.sender || (message.isOut ? 'Você' : 'Desconhecido'));
-  const media = message.media
+  const mediaMarker = message.media && message.media !== 'audio' && message.media !== 'document'
     ? `<span class="media-marker">${escapeHtml(mediaLabel(message.media))}</span>`
     : '';
-  const text = message.body ? `<span class="message-text">${escapeHtml(message.body)}</span>` : '';
+  const mediaImage = message.media === 'image' && message.mediaSrc
+    ? `<img src="${message.mediaSrc}" class="message-image" alt="Imagem" />`
+    : '';
+  const mediaAudio = message.media === 'audio'
+    ? message.mediaSrc
+      ? `<audio controls preload="metadata" class="message-audio" src="${message.mediaSrc}"></audio>`
+      : `<div class="message-audio-placeholder"><span class="audio-badge">🎤 Áudio</span> ${message.body ? `<span class="audio-duration">(${escapeHtml(message.body)})</span>` : ''}</div>`
+    : '';
+  const mediaTranscription = message.transcription
+    ? `<div class="message-transcription">
+        <div class="transcription-label">📝 Transcrição:</div>
+        <p class="transcription-text">${escapeHtml(message.transcription)}</p>
+      </div>`
+    : '';
+  const mediaVideo = message.media === 'video' && message.mediaSrc
+    ? `<video controls preload="metadata" class="message-video" src="${message.mediaSrc}"></video>`
+    : '';
+  const mediaDocument = message.media === 'document'
+    ? `<div class="message-document">
+        <div class="document-info">
+          <span class="document-icon">📄</span>
+          <span class="document-name">${escapeHtml(message.documentName || 'Documento')}</span>
+          ${message.documentSize ? `<span class="document-size">(${escapeHtml(message.documentSize)})</span>` : ''}
+        </div>
+        ${message.mediaSrc ? `<a href="${message.mediaSrc}" download="${escapeHtml(message.documentName || 'documento')}" class="document-download-btn">📥 Baixar Documento</a>` : ''}
+      </div>`
+    : '';
+  const text = message.body && message.media !== 'audio' ? `<span class="message-text">${escapeHtml(message.body)}</span>` : '';
 
   return `
       <div class="message ${message.isOut ? 'message-out' : 'message-in'}">
@@ -71,7 +98,7 @@ function renderMessageRow(message: ExportedMessage): string {
           <span class="message-sender">${sender}</span>
           <span class="message-time">${time}</span>
         </div>
-        <div class="message-bubble">${media}${text}</div>
+        <div class="message-bubble">${mediaMarker}${mediaImage}${mediaAudio}${mediaTranscription}${mediaVideo}${mediaDocument}${text}</div>
       </div>`;
 }
 
@@ -128,6 +155,113 @@ export function buildHtmlReport(
     .media-marker {
       display: inline-block; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;
       border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600;
+    }
+    .message-image {
+      display: block;
+      max-width: 320px;
+      max-height: 320px;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      margin: 6px 0 4px;
+      object-fit: contain;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .message-audio {
+      display: block;
+      margin: 8px 0 4px;
+      max-width: 100%;
+      width: 280px;
+      height: 38px;
+      border-radius: 20px;
+    }
+    .message-audio-placeholder {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0891b2;
+      background: #ecfeff;
+      border: 1px solid #cffafe;
+      border-radius: 8px;
+      padding: 6px 12px;
+    }
+    .audio-duration {
+      font-size: 11.5px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .message-transcription {
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 6px 0 4px;
+      font-size: 13px;
+      max-width: 380px;
+    }
+    .transcription-label {
+      font-weight: 700;
+      color: #0891b2;
+      font-size: 11.5px;
+      margin-bottom: 3px;
+    }
+    .transcription-text {
+      color: #1e293b;
+      font-style: italic;
+      line-height: 1.4;
+    }
+    .message-video {
+      display: block;
+      max-width: 320px;
+      max-height: 320px;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      margin: 8px 0 4px;
+      object-fit: contain;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .message-document {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 6px 0 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 340px;
+    }
+    .document-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #0f172a;
+    }
+    .document-size {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 400;
+    }
+    .document-download-btn {
+      display: inline-block;
+      align-self: flex-start;
+      background: #06b6d4;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      transition: background 0.15s ease;
+    }
+    .document-download-btn:hover {
+      background: #0891b2;
     }
     footer.report-footer {
       margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 12px;

@@ -5,7 +5,6 @@
  */
 
 import { EXPORT_DOWNLOAD_SUBDIR, EXPORT_DOWNLOAD_MESSAGE_TYPE } from '../../constants';
-import { formatDay } from './format';
 
 /** Normalizes a chat name into a safe filename fragment. */
 export function sanitizeFilename(name: string): string {
@@ -17,11 +16,10 @@ export function sanitizeFilename(name: string): string {
   return cleaned.slice(0, 80) || 'conversa';
 }
 
-/** Builds the full export filename, e.g. conversa_maria_05-08-2026.html. */
-export function buildExportFilename(chatName: string, when: Date): string {
+/** Builds the unified export filename for a conversation, e.g. conversa_maria.html. */
+export function buildExportFilename(chatName: string, _when?: Date): string {
   const safeName = sanitizeFilename(chatName);
-  const day = formatDay(when).replace(/\//g, '-');
-  return `conversa_${safeName}_${day}.html`;
+  return `conversa_${safeName}.html`;
 }
 
 /** Converts an HTML string into a base64 data URL. */
@@ -37,7 +35,7 @@ export function htmlToDataUrl(html: string): Promise<string> {
 
 /**
  * Triggers the download of a report. When chrome.downloads is available the
- * file is saved under the configured subdirectory with unique-name handling.
+ * file is saved under the configured subdirectory with overwrite handling.
  * In content scripts, delegates to the background service worker via runtime message.
  */
 export async function downloadHtml(
@@ -51,7 +49,7 @@ export async function downloadHtml(
       url: dataUrl,
       filename: subdir ? `${subdir}/${filename}` : filename,
       saveAs: false,
-      conflictAction: 'uniquify',
+      conflictAction: 'overwrite',
     });
     return;
   }

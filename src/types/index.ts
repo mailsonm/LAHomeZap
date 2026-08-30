@@ -72,6 +72,23 @@ export interface ExportedMessage {
   timestampMs: number;
   isOut: boolean;
   media: MediaKind | null;
+  mediaSrc?: string;
+  documentName?: string;
+  documentSize?: string;
+  transcription?: string;
+}
+
+/** Pagination state and controls for components such as Phrasebar. */
+export interface PaginationState<T> {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  pageItems: T[];
+  canNext: boolean;
+  canPrev: boolean;
+  nextPage: () => void;
+  prevPage: () => void;
+  goToPage: (page: number) => void;
 }
 
 /** Scheduling configuration for the automatic daily export. */
@@ -88,3 +105,11 @@ export interface ExportResultFile {
   html: string;
   messageCount: number;
 }
+
+/** STT result and status */
+export interface STTResult {
+  text: string;
+  confidence?: number;
+  cached?: boolean;
+}
+

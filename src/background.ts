@@ -102,7 +102,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             url: dataUrl,
             filename: subdir ? `${subdir}/${message.filename}` : message.filename,
             saveAs: false,
-            conflictAction: 'uniquify',
+            conflictAction: 'overwrite',
           },
           () => sendResponse({ ok: true })
         );

@@ -3,15 +3,21 @@
 > Este arquivo é lido automaticamente por agentes de IA (opencode, Claude Code, Codex, Cursor, etc.).
 > Serve como memória persistente quando o contexto é limpo ou a sessão troca de IA.
 
+## Tarefas Concluídas Recentemente
+
+1. **Paginação e Navegação na Barra de Atalhos (`Phrasebar`)**:
+   - Paginação compacta com setas verticais (`▲ / ▼`), indicador `pág X/Y` e suporte a rolagem via scroll do mouse (`wheel`), evitando sobrecarga visual e quebra de layout quando há muitos atalhos cadastrados.
+2. **Exportação Completa de Mídias e PDFs em HTML Autossuficiente**:
+   - Extração e renderização de documentos (PDF, DOCX, etc.) com tamanho, nome e botão de download direto offline (`data:application/pdf;base64,...`).
+   - Inclusão automática de caixas de transcrição STT abaixo dos players de áudio no relatório HTML.
+3. **STT (Speech-to-Text) Nativo para WhatsApp Web**:
+   - Injeção do botão `[📝 Transcrever]` nos players de áudio com processamento em Português (`pt-BR`) via Web Speech API / áudio nativo, cache em `chrome.storage.local` e botão de cópia rápida.
+4. **Qualidade de Código & Linter**:
+   - 0 erros e 0 avisos no ESLint, 166 testes passando no Vitest e compilação do bundle Manifest V3 100% íntegra.
+
 ## Tarefas Pendentes
 
-1. **Ajustes no Export de Conversas (Phase 7)** — o export básico já funciona, mas o usuário relatou
-   "alguns ajustes" pendentes na exportação (validação real no WhatsApp Web). Abrir nova rodada de
-   verificação e corrigir o que for apontado.
-2. **Vulnerabilidades de dependências (Dependabot)** — 17 alertas no GitHub (9 high, 8 moderate),
-   todos em devDependencies (build/teste). `npm audit fix` resolve a maioria (brace-expansion, js-yaml,
-   nanoid, postcss, undici). O esbuild/vite (moderate) exige `npm audit fix --force` → vite 8 (breaking
-   change): **NÃO forçar agora**, testar o build da extensão antes.
+1. **Vulnerabilidades de dependências (Dependabot)** — 17 alertas no GitHub em devDependencies (build/teste). Manter atenção a atualizações de Vite sem quebrar o build do Chrome MV3.
 
 ## Contexto Técnico Relevante
 

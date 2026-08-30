@@ -16,3 +16,12 @@ Thumbs.db
 # Test/Build artifacts
 coverage/
 *.zip
+
+# Reports, Proposals & Internal Valuation
+*relatorio*
+*proposta*
+*valuation*
+*pricing*
+reports/
+.planning/
+

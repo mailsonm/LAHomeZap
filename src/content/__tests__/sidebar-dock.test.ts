@@ -30,4 +30,15 @@ describe('sidebar-dock and media viewer', () => {
       expect(isMediaViewerOpen()).toBe(true);
     });
   });
+
+  describe('sidebar root pointer events', () => {
+    it('sets pointer-events: none on root to allow clicks to pass through to WhatsApp UI', async () => {
+      const { injectKanban } = await import('../kanban/index');
+      injectKanban();
+
+      const root = document.getElementById('la-home-zap-root');
+      expect(root).not.toBeNull();
+      expect(root?.style.pointerEvents).toBe('none');
+    });
+  });
 });

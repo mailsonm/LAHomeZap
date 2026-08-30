@@ -26,15 +26,15 @@ describe('download', () => {
   });
 
   describe('buildExportFilename', () => {
-    it('builds a date-stamped filename', () => {
+    it('builds a unified conversation filename', () => {
       const when = new Date(2026, 7, 5, 15, 0, 0);
-      expect(buildExportFilename('Maria', when)).toBe('conversa_Maria_05-08-2026.html');
+      expect(buildExportFilename('Maria', when)).toBe('conversa_Maria.html');
     });
 
     it('sanitizes the chat name inside the filename', () => {
       const when = new Date(2026, 7, 5, 15, 0, 0);
       expect(buildExportFilename('Hapvida/Solicitações', when)).toBe(
-        'conversa_Hapvida_Solicitações_05-08-2026.html'
+        'conversa_Hapvida_Solicitações.html'
       );
     });
   });
@@ -47,7 +47,7 @@ describe('download', () => {
   });
 
   describe('downloadHtml', () => {
-    it('uses chrome.downloads when available', async () => {
+    it('uses chrome.downloads when available with overwrite conflictAction', async () => {
       const download = vi.fn().mockResolvedValue(1);
       (globalThis as any).chrome.downloads = { download };
 
@@ -58,7 +58,7 @@ describe('download', () => {
       expect(options.filename).toBe('LaHomeZap/conversa_Maria.html');
       expect(options.url.startsWith('data:text/html;charset=utf-8;base64,')).toBe(true);
       expect(options.saveAs).toBe(false);
-      expect(options.conflictAction).toBe('uniquify');
+      expect(options.conflictAction).toBe('overwrite');
       delete (globalThis as any).chrome.downloads;
     });
 

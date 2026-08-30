@@ -59,12 +59,13 @@ export const SELECTORS = {
   conversationInfoHeader: '[data-testid="conversation-info-header"]',
 
   // Chatlist selectors for sidebar visualization
-  chatlistRow: '#pane-side [data-testid="cell-frame-container"], #pane-side [data-testid="list-item"], [data-testid="chat-list"] [data-testid="cell-frame-container"], [data-testid="cell-frame-container"], [data-testid="list-item"]',
+  chatlistRow: '#pane-side [data-testid="cell-frame-container"], #pane-side [data-testid="list-item"], [data-testid="chat-list"] [data-testid="cell-frame-container"], [data-testid="chat-list"] [data-testid="list-item"]',
   chatlistLabelPill: 'span[data-label-id]',
-  chatlistRowName: '[data-testid="chat-title"], span[dir="auto"]',
+  chatlistRowName: '[data-testid="cell-frame-title"] span, [data-testid="cell-frame-title"], [data-testid="chat-title"], span[dir="auto"]',
 
   // Message bubbles inside the active conversation
   messageRow: '[data-testid="msg-container"], .message-in, .message-out',
   messageTimestamp: '[data-pre-plain-text]',
-  messageText: 'span.selectable-text',
+  messageText: 'span.selectable-text, span[dir="ltr"], [data-testid="msg-text"], span[class*="selectable-text"]',
+  messageMeta: '[data-testid="msg-meta"], span[data-testid="msg-time"], span[class*="bubble-timestamp"]',
 };

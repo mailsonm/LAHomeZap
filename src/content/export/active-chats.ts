@@ -13,7 +13,7 @@ export interface ChatCandidate {
   isAmbiguous: boolean;
 }
 
-const TIME_REGEX = /^(\d{1,2}):(\d{2})(?:\s*([ap]\.?m\.?))?$/i;
+const TIME_REGEX = /^(\d{1,2})[:.](\d{2})(?:\s*([ap]\.?m\.?))?$/i;
 const YESTERDAY_LABELS = new Set(['ontem', 'ayer', 'yesterday']);
 
 /**
@@ -26,7 +26,7 @@ export function parseChatlistTime(
   text: string,
   nowMs: number
 ): { timestampMs: number | null; isAmbiguous: boolean } | null {
-  const clean = (text || '').trim();
+  const clean = (text || '').replace(/[\s\u00a0\u202f]+/g, ' ').trim();
   if (!clean) return null;
 
   const timeMatch = clean.match(TIME_REGEX);
@@ -91,6 +91,9 @@ export function shouldIncludeCandidate(
  */
 export function getChatlistRowName(row: Element): string {
   const titleEl =
+    row.querySelector('[data-testid="cell-frame-title"] [title]') ??
+    row.querySelector('[data-testid="cell-frame-title"] span') ??
+    row.querySelector('[data-testid="cell-frame-title"]') ??
     row.querySelector('[data-testid="chat-title"]') ??
     row.querySelector(SELECTORS.chatlistRowName);
 
@@ -135,12 +138,26 @@ export function areChatNamesMatching(
   return false;
 }
 
+/** Locates all chatlist rows, prioritizing #pane-side to avoid matching open conversation headers. */
+export function getChatlistRows(): HTMLElement[] {
+  const pane = document.querySelector('#pane-side') ?? document.querySelector('[data-testid="chat-list"]');
+  if (pane) {
+    return Array.from(
+      pane.querySelectorAll('[data-testid="cell-frame-container"], [data-testid="list-item"]')
+    ) as HTMLElement[];
+  }
+  const allRows = Array.from(
+    document.querySelectorAll('[data-testid="cell-frame-container"], [data-testid="list-item"]')
+  ) as HTMLElement[];
+  return allRows.filter((row) => !row.closest('#main'));
+}
+
 /** Scans the WhatsApp chatlist and returns candidate chats with recent activity. */
 export function scanActiveChatsFromChatlist(
   nowMs: number,
   windowMs: number = EXPORT_WINDOW_MS
 ): ChatCandidate[] {
-  const rows = document.querySelectorAll(SELECTORS.chatlistRow);
+  const rows = getChatlistRows();
   const candidates: ChatCandidate[] = [];
 
   rows.forEach((row) => {
@@ -193,11 +210,15 @@ function dispatchRowClick(row: HTMLElement): void {
 
 /** Opens (activates) the chatlist row whose title matches the target chat name. */
 export function openChatByName(name: string): boolean {
-  const rows = document.querySelectorAll(SELECTORS.chatlistRow);
+  const rows = getChatlistRows();
   for (const row of rows) {
     const rowName = getChatlistRowName(row);
     if (areChatNamesMatching(rowName, name)) {
-      dispatchRowClick(row as HTMLElement);
+      const clickTarget = (row.querySelector('[role="button"], [tabindex], [data-testid="cell-frame-title"]') ?? row) as HTMLElement;
+      dispatchRowClick(row);
+      if (clickTarget !== row) {
+        dispatchRowClick(clickTarget);
+      }
       return true;
     }
   }

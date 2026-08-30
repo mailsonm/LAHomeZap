@@ -83,7 +83,7 @@
   height: 100%;
   background: #0b0f19;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  pointer-events: auto;
+  pointer-events: none;
   box-shadow: -10px 0 35px rgba(0, 0, 0, 0.6);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   transform: translateX(350px);
@@ -94,6 +94,7 @@
 
 .la-home-zap-drawer.open {
   transform: translateX(0);
+  pointer-events: auto;
 }
 
 /* Base generic panel layout */
