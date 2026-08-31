@@ -139,6 +139,102 @@ function findValidAudioElement(container?: ParentNode): HTMLAudioElement | null 
 }
 
 /**
+ * Extracts the audio duration (in seconds) specifically from the message bubble's audio player,
+ * strictly filtering out message send timestamps (e.g. 3:50 PM, 15:50), plain text headers, and STT boxes.
+ */
+export function extractAudioDurationFromBubble(msgContainer: HTMLElement): number {
+  if (!msgContainer) return 0;
+
+  // 1. Check audio player specific sub-elements first
+  const player = msgContainer.querySelector(
+    '[data-testid="audio-player"], [data-testid="ptt-draft-play"], [data-testid="ptt-play"], .message-audio-placeholder, div[role="region"]'
+  );
+
+  // Check role=slider aria attributes (WhatsApp Web voice notes often have role="slider" with aria-valuemax or aria-valuetext)
+  const slider = (player || msgContainer).querySelector('[role="slider"]');
+  if (slider) {
+    const valueMax = slider.getAttribute('aria-valuemax');
+    if (valueMax && !isNaN(Number(valueMax))) {
+      const sec = Number(valueMax);
+      if (sec > 0 && sec < 1800) return sec;
+    }
+    const valueText = slider.getAttribute('aria-valuetext') || slider.getAttribute('aria-label') || '';
+    const match = valueText.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (match) {
+      const m = parseInt(match[1], 10);
+      const s = parseInt(match[2], 10);
+      if (m < 60 && s < 60) {
+        const sec = m * 60 + s;
+        if (sec > 0 && sec < 1800) return sec;
+      }
+    }
+  }
+
+  // Check explicit audio duration elements or spans inside the player
+  const durationCandidates: Element[] = [];
+  if (player) {
+    durationCandidates.push(...Array.from(player.querySelectorAll('[data-testid="audio-duration"], span[dir="auto"], span, div')));
+  } else {
+    // Find spans adjacent to play button or audio icons
+    const playBtn = findPlayButton(msgContainer);
+    if (playBtn && playBtn.parentElement) {
+      durationCandidates.push(...Array.from(playBtn.parentElement.querySelectorAll('span, div')));
+    }
+  }
+
+  const foundDurations: number[] = [];
+  for (const el of durationCandidates) {
+    // Exclude message timestamp or transcription box
+    if (el.closest('[data-testid="msg-meta"], .stt-bubble-container, .stt-transcription-box')) {
+      continue;
+    }
+    const txt = el.textContent?.trim() || '';
+    const matches = Array.from(txt.matchAll(/\b(\d{1,2}):(\d{2})\b/g));
+    for (const match of matches) {
+      const m = parseInt(match[1], 10);
+      const s = parseInt(match[2], 10);
+      if (m < 60 && s < 60) {
+        const sec = m * 60 + s;
+        if (sec > 0 && sec < 1800) {
+          foundDurations.push(sec);
+        }
+      }
+    }
+  }
+
+  if (foundDurations.length > 0) {
+    return Math.max(...foundDurations);
+  }
+
+  // 2. Fallback: Parse whole container while strictly ignoring msg-meta and STT elements
+  const clone = msgContainer.cloneNode(true) as HTMLElement;
+  const toRemove = clone.querySelectorAll(
+    '[data-testid="msg-meta"], .stt-bubble-container, .stt-transcription-box, [data-testid="tail-in"], [data-testid="tail-out"], .selectable-text, [data-testid="status-dblcheck"]'
+  );
+  toRemove.forEach((el) => el.remove());
+
+  const cleanText = clone.textContent || '';
+  const generalMatches = Array.from(cleanText.matchAll(/\b(\d{1,2}):(\d{2})\b/g));
+  const cleanDurations: number[] = [];
+  for (const match of generalMatches) {
+    const m = parseInt(match[1], 10);
+    const s = parseInt(match[2], 10);
+    if (m < 60 && s < 60) {
+      const sec = m * 60 + s;
+      if (sec > 0 && sec < 1800) {
+        cleanDurations.push(sec);
+      }
+    }
+  }
+
+  if (cleanDurations.length > 0) {
+    return Math.max(...cleanDurations);
+  }
+
+  return 0;
+}
+
+/**
  * Robustly extracts the audio blob URL for THIS specific message container,
  * triggering the WhatsApp play button if needed and strictly avoiding cross-bubble audio contamination.
  */
@@ -148,20 +244,7 @@ export async function extractAudioSourceFromContainer(
   preferredPlayer?: Element | null
 ): Promise<{ src: string; audioElement: HTMLAudioElement | null }> {
   // Extract target duration from bubble text (e.g. 0:14 -> 14s, 0:09 -> 9s)
-  const text = msgContainer.textContent || '';
-  const allMatches = Array.from(text.matchAll(/\b(\d{1,2}):(\d{2})\b/g));
-  let targetDurationSec = 0;
-  for (const match of allMatches) {
-    const m = parseInt(match[1], 10);
-    const s = parseInt(match[2], 10);
-    if (m < 60 && s < 60) {
-      const sec = m * 60 + s;
-      if (sec > 0 && sec < 1800) {
-        targetDurationSec = sec;
-        break;
-      }
-    }
-  }
+  const targetDurationSec = extractAudioDurationFromBubble(msgContainer);
 
   // 1. Check direct initial src or container-scoped audio element
   if (initialSrc && (initialSrc.startsWith('blob:') || initialSrc.startsWith('data:') || initialSrc.startsWith('http'))) {
@@ -178,14 +261,43 @@ export async function extractAudioSourceFromContainer(
     }
   }
 
-  // 2. Check active audio element playing right now in the document (ONLY if duration matches)
+  // 2. Check captured memory registry for an exact duration match
+  const existingCaptured = getCapturedAudioUrls();
+  if (existingCaptured.length > 0 && targetDurationSec > 0) {
+    let exactMatchUrl: string | null = null;
+    let minDiff = Infinity;
+
+    for (const url of existingCaptured) {
+      const dur = await getAudioBlobDuration(url);
+      if (dur > 0) {
+        const diff = Math.abs(dur - targetDurationSec);
+        if (diff <= 1.0 && diff < minDiff) {
+          minDiff = diff;
+          exactMatchUrl = url;
+        }
+      }
+    }
+
+    if (exactMatchUrl) {
+      return { src: exactMatchUrl, audioElement: null };
+    }
+  }
+
+  // 3. Check active audio element playing right now in the document
+  // (MUST be actively playing !paused && currentTime > 0, AND match duration if known)
   const allDocAudios = Array.from(document.querySelectorAll('audio'));
-  const activePlayingAudio = allDocAudios.find(
-    (a) =>
-      (a.src?.startsWith('blob:') || a.currentSrc?.startsWith('blob:')) &&
-      (!a.paused || a.currentTime > 0) &&
-      (targetDurationSec === 0 || !Number.isFinite(a.duration) || a.duration === 0 || Math.abs(a.duration - targetDurationSec) <= 1.5)
-  );
+  const activePlayingAudio = allDocAudios.find((a) => {
+    if (!a.src?.startsWith('blob:') && !a.currentSrc?.startsWith('blob:')) return false;
+    const isPlaying = !a.paused && a.currentTime > 0;
+    const isInsideContainer = msgContainer.contains(a);
+    if (!isPlaying && !isInsideContainer) return false;
+
+    if (targetDurationSec > 0 && Number.isFinite(a.duration) && a.duration > 0) {
+      return Math.abs(a.duration - targetDurationSec) <= 1.5;
+    }
+    return isInsideContainer;
+  });
+
   if (activePlayingAudio) {
     const src = activePlayingAudio.src || activePlayingAudio.currentSrc;
     try { activePlayingAudio.pause(); } catch { /* ignore */ }
@@ -193,7 +305,7 @@ export async function extractAudioSourceFromContainer(
     return { src, audioElement: activePlayingAudio };
   }
 
-  // 3. Trigger WhatsApp play button for THIS message bubble to load its specific blob
+  // 4. Trigger WhatsApp play button for THIS message bubble to load its specific blob
   const playBtn = findPlayButton(msgContainer, preferredPlayer);
   if (playBtn) {
     let capturedUrl: string | null = null;
@@ -218,10 +330,12 @@ export async function extractAudioSourceFromContainer(
       }
     };
 
-    window.addEventListener('__lz_blob_created', onCapturedBlob);
-    window.addEventListener('__lz_audio_play', onCapturedAudio);
-    window.addEventListener('__lz_audio_src', onCapturedAudio);
-    window.addEventListener('message', onPostMessage);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('__lz_blob_created', onCapturedBlob);
+      window.addEventListener('__lz_audio_play', onCapturedAudio);
+      window.addEventListener('__lz_audio_src', onCapturedAudio);
+      window.addEventListener('message', onPostMessage);
+    }
 
     try {
       triggerElementClick(playBtn);
@@ -256,15 +370,16 @@ export async function extractAudioSourceFromContainer(
           }
         }
 
-        // Check document-wide for newly active playing audio element matching duration
+        // Check document-wide for actively playing audio element matching duration
         const docAudios = Array.from(document.querySelectorAll('audio'));
         for (const a of docAudios) {
           const src = a.src || a.currentSrc || '';
           if (
             src &&
             (src.startsWith('blob:') || src.startsWith('data:')) &&
-            (!a.paused || a.currentTime > 0) &&
-            (targetDurationSec === 0 || !Number.isFinite(a.duration) || a.duration === 0 || Math.abs(a.duration - targetDurationSec) <= 1.5)
+            !a.paused &&
+            a.currentTime > 0 &&
+            (targetDurationSec === 0 || (Number.isFinite(a.duration) && a.duration > 0 && Math.abs(a.duration - targetDurationSec) <= 1.5))
           ) {
             try { a.pause(); } catch { /* ignore */ }
             recordAudioUrl(src);
@@ -273,14 +388,16 @@ export async function extractAudioSourceFromContainer(
         }
       }
     } finally {
-      window.removeEventListener('__lz_blob_created', onCapturedBlob);
-      window.removeEventListener('__lz_audio_play', onCapturedAudio);
-      window.removeEventListener('__lz_audio_src', onCapturedAudio);
-      window.removeEventListener('message', onPostMessage);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('__lz_blob_created', onCapturedBlob);
+        window.removeEventListener('__lz_audio_play', onCapturedAudio);
+        window.removeEventListener('__lz_audio_src', onCapturedAudio);
+        window.removeEventListener('message', onPostMessage);
+      }
     }
   }
 
-  // 4. Multi-level Fallback: Duration-based matching from memory registry
+  // 5. Multi-level Fallback: Duration-based matching from memory registry
   const capturedUrls = getCapturedAudioUrls();
   if (capturedUrls.length > 0) {
     if (targetDurationSec > 0) {
@@ -291,7 +408,7 @@ export async function extractAudioSourceFromContainer(
         const dur = await getAudioBlobDuration(url);
         if (dur > 0) {
           const diff = Math.abs(dur - targetDurationSec);
-          if (diff <= 1.5 && diff < minDiff) {
+          if (diff <= 2.0 && diff < minDiff) {
             minDiff = diff;
             bestUrl = url;
           }
@@ -307,7 +424,14 @@ export async function extractAudioSourceFromContainer(
     if (capturedUrls.length === 1) {
       return { src: capturedUrls[0], audioElement: null };
     }
-    // If multiple, fallback to latest
+
+    // If targetDurationSec > 0 and multiple blobs exist but none matched within 2.0s:
+    // Do NOT return a mismatched blob (e.g. 14s for 9s). Prompt user instead.
+    if (targetDurationSec > 0) {
+      return { src: '', audioElement: null };
+    }
+
+    // If no target duration was detectable, fallback to latest
     return { src: capturedUrls[capturedUrls.length - 1], audioElement: null };
   }
 
@@ -418,21 +542,9 @@ export function scanAndInjectAudioSTT(container: ParentNode = document): void {
           }
         }
 
-        // Calculate max duration from visible bubble patterns (e.g. 0:14 vs current pos 0:00 or 0:08)
-        const allMatches = Array.from(msgContainer.textContent?.matchAll(/\b(\d{1,2}):(\d{2})\b/g) || []);
-        let maxDurationSec = 0;
-        for (const match of allMatches) {
-          const m = parseInt(match[1], 10);
-          const s = parseInt(match[2], 10);
-          if (m < 60 && s < 60) {
-            const totalSec = m * 60 + s;
-            if (totalSec < 3600 && totalSec > maxDurationSec) {
-              maxDurationSec = totalSec;
-            }
-          }
-        }
-
-        let durationMs = maxDurationSec * 1000;
+        // Calculate duration from bubble duration or element
+        const targetDurationSec = extractAudioDurationFromBubble(msgContainer);
+        let durationMs = targetDurationSec > 0 ? targetDurationSec * 1000 : 12000;
         if (currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0) {
           durationMs = Math.max(durationMs, currentAudio.duration * 1000);
         }

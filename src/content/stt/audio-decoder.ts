@@ -136,10 +136,22 @@ export async function decodeAudioBlobToPCM16k(
   }
 }
 
+const blobDurationCache = new Map<string, number>();
+
+/**
+ * Resets the in-memory blob duration cache. Used primarily in test suites.
+ */
+export function resetBlobDurationCacheForTesting(): void {
+  blobDurationCache.clear();
+}
+
 /**
  * Quickly extracts the duration (in seconds) of an audio blob by decoding its buffer.
  */
 export async function getAudioBlobDuration(audioInput: string | Blob): Promise<number> {
+  if (typeof audioInput === 'string' && blobDurationCache.has(audioInput)) {
+    return blobDurationCache.get(audioInput)!;
+  }
   try {
     let arrayBuffer: ArrayBuffer;
     if (typeof audioInput === 'string') {
@@ -153,15 +165,22 @@ export async function getAudioBlobDuration(audioInput: string | Blob): Promise<n
     const audioCtx = new AudioContextClass();
     try {
       const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-      return decoded.duration || 0;
+      const dur = decoded.duration || 0;
+      if (typeof audioInput === 'string' && dur > 0) {
+        blobDurationCache.set(audioInput, dur);
+      }
+      return dur;
     } finally {
       if (typeof audioCtx.close === 'function') {
         try {
           await audioCtx.close();
-        } catch {}
+        } catch (_e) {
+          // ignore context close failures
+        }
       }
     }
   } catch {
+    // ignore decoding failures
     return 0;
   }
 }
